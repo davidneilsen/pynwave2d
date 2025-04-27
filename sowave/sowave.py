@@ -9,11 +9,18 @@ from nwave import Equations, Grid
 
 
 class ScalarField(Equations):
-    def __init__(self, NU, g: Grid, bctype=None):
-        super().__init__(NU, g, bctype)
+    def __init__(self, NU, g: Grid, bctype):
+        if bctype == "SOMMERFELD":
+            apply_bc = "RHS"
+        elif bctype == "REFLECT":
+            apply_bc = "FUNCTION"
+        else:
+            raise ValueError("Invalid boundary condition type. Use 'SOMMERFELD' or 'REFLECT'.")
+
+        self.bound_cond = bctype
+        super().__init__(NU, g, apply_bc)
         self.U_PHI = 0
         self.U_CHI = 1
-        self.boundary_type = bctype
 
     def rhs(self, dtu, u, g: Grid):
         dtphi = dtu[0]
@@ -26,7 +33,7 @@ class ScalarField(Equations):
         dyyphi = g.D2.grad_yy(phi)
         dtchi[:] = dxxphi[:] + dyyphi[:]
 
-        if self.boundary_type == "SOMMERFELD":
+        if self.bound_cond == "SOMMERFELD":
             # Sommerfeld boundary conditions
             dxphi = g.D1.grad_x(phi)
             dyphi = g.D1.grad_y(phi)
@@ -45,7 +52,7 @@ class ScalarField(Equations):
         self.u[1][:, :] = 0.0
 
     def apply_bcs(self, u, g: Grid):
-        if self.boundary_type == "REFLECT":
+        if self.bound_cond == "REFLECT":
             bc_reflect(u[0], u[1])
 
 

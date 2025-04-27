@@ -4,19 +4,12 @@ import numpy as np
 
 
 class RK4:
-    def __init__(self, e: Equations, g: Grid, bctype=None):
+    def __init__(self, e: Equations, g: Grid):
         self.k1 = []
         self.k2 = []
         self.k3 = []
         self.k4 = []
         self.us = []
-        if bctype == "FUNCTION" or bctype == "function":
-            self.bctype = bctype
-        elif bctype == "RHS" or bctype == "rhs":
-            self.bctype = bctype
-        else:
-            raise ValueError("Invalid boundary condition type. Use 'FUNCTION' or 'RHS'.")
-            self.bctype = NONE
 
         nx = g.Nx
         ny = g.Ny
@@ -40,26 +33,26 @@ class RK4:
         e.rhs(k1, u0, g)
         for i in range(nu):
             us[i][:] = u0[i][:] + 0.5 * dt * k1[i][:]
-        if self.bctype == "FUNCTION":
+        if e.apply_bc == "FUNCTION":
             e.apply_bcs(self.us, g)
 
         # Stage 2
         e.rhs(k2, us, g)
         for i in range(nu):
             us[i][:] = u0[i][:] + 0.5 * dt * k2[i][:]
-        if self.bctype == "FUNCTION":
+        if e.apply_bc == "FUNCTION":
             e.apply_bcs(us, g)
 
         # Stage 3
         e.rhs(k3, us, g)
         for i in range(nu):
             us[i][:] = u0[i][:] + dt * k3[i][:]
-        if self.bctype == "FUNCTION":
+        if e.apply_bc == "FUNCTION":
             e.apply_bcs(us, g)
 
         # Stage 4
         e.rhs(self.k3, us, g)
         for i in range(nu):
             u0[i][:] += dt / 6 * (k1[i][:] + 2 * k2[i][:] + 2 * k3[i][:] + k4[i][:])
-        if self.bctype == "FUNCTION":
+        if e.apply_bc == "FUNCTION":
             e.apply_bcs(u0, g)

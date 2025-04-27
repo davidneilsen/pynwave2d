@@ -4,7 +4,7 @@ import numpy as np
 
 
 # --- Output ---
-def write_hdf5(step, u, X, Y, output_dir):
+def write_hdf5(step, u, X, Y, unames, output_dir):
     """
     Write the current state of the simulation to an HDF5 file.
     Args:
@@ -18,18 +18,15 @@ def write_hdf5(step, u, X, Y, output_dir):
     fname = f"{output_dir}/wave_{step:05d}.h5"
     with h5py.File(fname, "w") as f:
         Z = np.array([0.0])
-        d0 = np.transpose(u[0])
-        d1 = np.transpose(u[1])
-        # d0 = np.zeros((11,11))
-        # d1 = np.ones((11,11))
         f.create_dataset("X", data=X)
         f.create_dataset("Y", data=Y)
         f.create_dataset("Z", data=Z)
-        f.create_dataset("phi", data=d0)
-        f.create_dataset("chi", data=d1)
+        for m in range(len(u)):
+            d1 = np.transpose(u[m])
+            f.create_dataset(unames[m], data=d1)
 
 
-def write_xdmf(output_dir, Nt, Nx, Ny, output_interval, dt):
+def write_xdmf(output_dir, Nt, Nx, Ny, unames, output_interval, dt):
     Nz = 1
     with open(os.path.join(output_dir, "wave.xdmf"), "w") as f:
         f.write(
@@ -47,13 +44,13 @@ def write_xdmf(output_dir, Nt, Nx, Ny, output_interval, dt):
           <DataItem Name="X" Dimensions="{Nx}" NumberType="Float" Precision="8" Format="HDF">wave_{n:05d}.h5:/X</DataItem>
           <DataItem Name="Y" Dimensions="{Ny}" NumberType="Float" Precision="8" Format="HDF">wave_{n:05d}.h5:/Y</DataItem>
           <DataItem Name="Z" Dimensions="{Nz}" NumberType="Float" Precision="8" Format="HDF">wave_{n:05d}.h5:/Z</DataItem>
-        </Geometry>
-        <Attribute Name="phi" AttributeType="Scalar" Center="Node">
+        </Geometry>\n""")
+            for m in range(len(unames)):
+                f.write(
+                    f"""        <Attribute Name="{unames[m]}" AttributeType="Scalar" Center="Node">
           <DataItem Dimensions="{Nz} {Ny} {Nx}" NumberType="Float" Precision="8" Format="HDF">wave_{n:05d}.h5:/phi</DataItem>
-        </Attribute>
-        <Attribute Name="chi" AttributeType="Scalar" Center="Node">
-          <DataItem Dimensions="{Nz} {Ny} {Nx}" NumberType="Float" Precision="8" Format="HDF">wave_{n:05d}.h5:/chi</DataItem>
-        </Attribute>
-      </Grid>\n"""
-            )
+        </Attribute>\n""")
+
+            f.write("      </Grid>\n")
+
         f.write("    </Grid>\n  </Domain>\n</Xdmf>\n")

@@ -13,7 +13,5 @@
   "id_amp": 1.0,
   "output_dir": "output_sowave",
   "output_interval": 1,
-  "fd_type": "explicit",
-  "bctype": "RHS",
   "bound_cond": "SOMMERFELD"
 }
