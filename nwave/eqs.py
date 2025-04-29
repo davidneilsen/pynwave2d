@@ -24,8 +24,7 @@ class Equations(ABC):
         """
 
         self.Nu = NU
-        self.Nx = g.Nx
-        self.Ny = g.Ny
+        self.shp = g.shp
         self.u = []
 
         if apply_bc == "FUNCTION" or apply_bc == "function":
@@ -36,7 +35,7 @@ class Equations(ABC):
             self.apply_bc = None
 
         for i in range (NU):
-            d = np.zeros((self.Nx, self.Ny))
+            d = np.zeros(tuple(self.shp))
             self.u.append(d)
  
     @abstractmethod

@@ -6,7 +6,7 @@ import os
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from nwave import Grid, CompactFirst2D, CompactSecond2D, ExplicitFirst44_2D, ExplicitSecond44_2D
+from nwave import Grid, Grid2D, CompactFirst2D, CompactSecond2D, ExplicitFirst44_2D, ExplicitSecond44_2D
 
 
 def func(x, y):
@@ -42,14 +42,19 @@ def func2(x, y):
 with open("params.json") as f:
     params = json.load(f)
 
-g = Grid(params)
-D1 = ExplicitFirst44_2D(g.dx, g.dy)
-D2 = ExplicitSecond44_2D(g.dx, g.dy)
+g = Grid2D(params)
+dx = g.dx[0]
+dy = g.dx[1]
+x = g.xi[0]
+y = g.xi[1]
 
-C1 = CompactFirst2D(g.x, g.y, "D1_JTP6", use_banded=False)
-C2 = CompactSecond2D(g.x, g.y, "D2_JTP6", use_banded=False)
+D1 = ExplicitFirst44_2D(dx, dy)
+D2 = ExplicitSecond44_2D(dx, dy)
 
-f, dxf, dyf, dxxf, dyyf = func(g.x, g.y)
+C1 = CompactFirst2D(x, y, "D1_SP4")
+C2 = CompactSecond2D(x, y, "D2_JTT4")
+
+f, dxf, dyf, dxxf, dyyf = func(x, y)
 
 DXF = D1.grad_x(f)
 DYF = D1.grad_y(f)
@@ -86,16 +91,16 @@ ii = (params["Nx"]-1) // 2
 c1d = np.abs(crr_xx[:,ii])
 e1d = np.abs(err_xx[:,ii])
 fig, ax = plt.subplots()
-ax.semilogy(g.x,e1d,marker=".",label="FD")
-ax.semilogy(g.x,c1d,marker=".",label="CFD")
+ax.semilogy(x,e1d,marker=".",label="FD")
+ax.semilogy(x,c1d,marker=".",label="CFD")
 plt.legend()
 plt.title("Error dxxf 1D (x)")
 
 c1d = np.abs(crr_x[:,ii])
 e1d = np.abs(err_x[:,ii])
 fig, ax = plt.subplots()
-ax.semilogy(g.x,e1d,marker=".",label="FD")
-ax.semilogy(g.x,c1d,marker=".",label="CFD")
+ax.semilogy(x,e1d,marker=".",label="FD")
+ax.semilogy(x,c1d,marker=".",label="CFD")
 plt.legend()
 plt.title("Error dxf 1D (x)")
 
@@ -106,10 +111,10 @@ plt.title("Error dxf 1D (x)")
 
 f1d = np.abs(crr_xx[ii,:])
 fig, ax = plt.subplots()
-ax.semilogy(g.y,f1d,marker=".")
+ax.semilogy(y,f1d,marker=".")
 plt.title("crr_xx 1D (y)")
 
-X, Y = np.meshgrid(g.x, g.y, indexing="ij")
+X, Y = np.meshgrid(x, y, indexing="ij")
 fig, ax = plt.subplots()
 CS = ax.contourf(X, Y, f, levels=10)
 fig.colorbar(CS)

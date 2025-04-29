@@ -10,6 +10,22 @@ from . compactderivs import CompactDerivative
 # This puts x in the "first" indexing dimension and y in the "second".
 
 
+class FirstDerivative1D(ABC):
+    def __init__(self, dx):
+        self.dx = dx
+
+    @abstractmethod
+    def grad_x(self, u):
+        pass
+
+class SecondDerivative1D(ABC):
+    def __init__(self, dx):
+        self.dx = dx
+
+    @abstractmethod
+    def grad_xx(self, u):
+        raise NotImplementedError
+
 class FirstDerivative2D(ABC):
     def __init__(self, dx, dy):
         self.dx = dx
@@ -23,18 +39,96 @@ class FirstDerivative2D(ABC):
     def grad_y(self, u):
         pass
 
-
 class SecondDerivative2D(ABC):
     def __init__(self, dx, dy):
         self.dx = dx
         self.dy = dy
 
+    @abstractmethod
     def grad_xx(self, u):
         raise NotImplementedError
 
+    @abstractmethod
     def grad_yy(self, u):
         raise NotImplementedError
 
+
+class ExplicitFirst44_1D(FirstDerivative1D):
+    def __init__(self, dx):
+        super().__init__(dx)
+
+    def grad_x(self, u):
+        dudx = np.zeros_like(u)
+        idx_by_12 = 1.0 / (12 * self.dx)
+
+        # center stencil
+        dudx[2:-2] = (
+            -u[4:] + 8 * u[3:-1] - 8 * u[1:-3] + u[0:-4]
+        ) * idx_by_12
+
+        # 4th order boundary stencils
+        dudx[0] = (
+            -25 * u[0] + 48 * u[1] - 36 * u[2] + 16 * u[3] - 3 * u[4]
+        ) * idx_by_12
+        dudx[1] = (
+            -3 * u[0] - 10 * u[1] + 18 * u[2] - 6 * u[3] + u[4]
+        ) * idx_by_12
+        dudx[-2] = (
+            -u[-5] + 6 * u[-4] - 18 * u[-3] + 10 * u[-2] + 3 * u[-1]
+        ) * idx_by_12
+        dudx[-1] = (
+            3 * u[-5] - 16 * u[-4] + 36 * u[-3] - 48 * u[-2] + 25 * u[-1]
+        ) * idx_by_12
+
+        return dudx
+
+class ExplicitSecond44_1D(SecondDerivative1D):
+    def __init__(self, dx):
+        super().__init__(dx)
+
+    def grad_xx(self, u):
+        idx_sqrd = 1.0 / self.dx**2
+        idx_sqrd_by_12 = idx_sqrd / 12.0
+
+        dxxu = np.zeros_like(u)
+        dxxu[2:-2] = (
+            -u[4:] + 16 * u[3:-1] - 30 * u[2:-2] + 16 * u[1:-3] - u[0:-4]
+        ) * idx_sqrd_by_12
+
+        # boundary stencils
+        dxxu[0] = (
+            45 * u[0]
+            - 154 * u[1]
+            + 214 * u[2]
+            - 156 * u[3]
+            + 61 * u[4]
+            - 10 * u[5]
+        ) * idx_sqrd_by_12
+        dxxu[1] = (
+            10 * u[0]
+            - 15 * u[1]
+            - 4 * u[2]
+            + 14 * u[3]
+            - 6 * u[4]
+            + u[5]
+        ) * idx_sqrd_by_12
+        dxxu[-2] = (
+            u[-6]
+            - 6 * u[-5]
+            + 14 * u[-4]
+            - 4 * u[-3]
+            - 15 * u[-2]
+            + 10 * u[-1]
+        ) * idx_sqrd_by_12
+        dxxu[-1] = (
+            -10 * u[-6]
+            + 61 * u[-5]
+            - 156 * u[-4]
+            + 214 * u[-3]
+            - 154 * u[-2]
+            + 45 * u[-1]
+        ) * idx_sqrd_by_12
+        return dxxu
 
 class ExplicitFirst44_2D(FirstDerivative2D):
     def __init__(self, dx, dy):
@@ -186,7 +280,7 @@ class ExplicitSecond44_2D(SecondDerivative2D):
 
 
 class CompactFirst2D(FirstDerivative2D):
-    def __init__(self, x, y, type, use_banded=False):
+    def __init__(self, x, y, type, method="SCIPY"):
         self.Nx = len(x)
         self.Ny = len(y)
         self.x = x
@@ -196,9 +290,9 @@ class CompactFirst2D(FirstDerivative2D):
         self.dx = dx
         self.dy = dy
         self.deriv_type = type
-        self.lusolve = use_banded
-        self.dxf = CompactDerivative(x, type, lusolve=use_banded)
-        self.dyf = CompactDerivative(y, type, lusolve=use_banded)
+        self.method = method
+        self.dxf = CompactDerivative(x, type, method)
+        self.dyf = CompactDerivative(y, type, method)
         super().__init__(dx, dy)
 
     def grad_x(self, u):
@@ -211,7 +305,7 @@ class CompactFirst2D(FirstDerivative2D):
         return np.transpose(du)
 
 class CompactSecond2D(SecondDerivative2D):
-    def __init__(self, x, y, type, use_banded=False):
+    def __init__(self, x, y, type, method="SCIPY"):
         self.Nx = len(x)
         self.Ny = len(y)
         self.x = x
@@ -221,9 +315,9 @@ class CompactSecond2D(SecondDerivative2D):
         self.dx = dx
         self.dy = dy
         self.deriv_type = type
-        self.lusolve = use_banded
-        self.dxxf = CompactDerivative(x, type, lusolve=use_banded)
-        self.dyyf = CompactDerivative(y, type, lusolve=use_banded)
+        self.method = method
+        self.dxxf = CompactDerivative(x, type, method)
+        self.dyyf = CompactDerivative(y, type, method)
         super().__init__(dx, dy)
 
     def grad_xx(self, u):

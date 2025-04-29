@@ -1,16 +1,19 @@
 import numpy as np
-from scipy.linalg import solve_banded
+from scipy.linalg import solve_banded, inv
 from . import bandedLUSolve as blu
+from . import utils
 
 class CompactDerivative:
-    def __init__(self, x, dtype, lusolve=True):
+    def __init__(self, x, dtype, method):
         self.x = x
         self.N = len(x)
         self.dx = x[1] - x[0]
         self.dtype = dtype
         self.overwrite = True
         self.checkf = True
-        self.use_lu_solve = lusolve 
+        self.method = method
+        self.lu_factorization = None
+        self.D = None
         self.denom = 1.0
 
         if dtype == 'D1_JTT4':
@@ -18,6 +21,11 @@ class CompactDerivative:
             self.bandwidth = 1
             self.bands = (1,1)
             self.denom = 1.0/self.dx
+        elif dtype == 'D2_JTT4':
+            self.ab, self.B = self._init_D2_JTT4()
+            self.bandwidth = 1
+            self.bands = (1,1)
+            self.denom = 1.0/(self.dx)**2
         elif dtype == 'D1_JTT6':
             self.ab, self.B = self._init_D1_JTT6()
             self.bandwidth = 1
@@ -32,7 +40,7 @@ class CompactDerivative:
             self.ab, self.B = self._init_D2_JTP6()
             self.bandwidth = 2
             self.bands = (2,2)
-            self.denom = 1.0/self.dx**2
+            self.denom = 1.0/(self.dx)**2
         elif dtype == 'D1_KP4':
             self.ab, self.B = self._init_D1_KP4()
             self.bandwidth = 2
@@ -50,8 +58,20 @@ class CompactDerivative:
             self.denom = 1.0/self.dx
         else:
             raise ValueError("Unknown derivative type = " + dtype)
-        if self.bandwidth != 0 and lusolve:
+        if method == "LUSOLVE":
             self.lu_factorization = blu.lu_banded(self.bands, self.ab, overwrite_ab=self.overwrite, check_finite=self.checkf)
+        elif method == "D_INV":
+            nb = self.bandwidth
+            A = utils.banded_to_full(self.ab, nb, nb, self.N, self.N)
+            Ainv = inv(A)
+            self.D = np.matmul(Ainv, self.B)
+        elif method == "D_LU":
+            self.D = solve_banded(self.bands, self.ab, self.B)
+        elif method == "SCIPY":
+            pass
+        else:
+            raise ValueError(f"Compact derivative method = {method} not implemented")
+       
 
     def _init_D1_JTT4(self):
         '''
@@ -76,6 +96,33 @@ class CompactDerivative:
         ab[2, -2] = 3.0
         B[0, 0:4]  = np.array([-17.0, 9.0, 9.0, -1.0]) / 6.0
         B[-1, -4:] = np.array([1.0, -9.0, -9.0, 17.0]) / (6.0)
+
+        return ab, B
+
+    def _init_D2_JTT4(self):
+        '''
+        #   This is the 4th-order tridiagonal operator from Jonathan Tyler
+        '''
+        N= self.N
+        alpha = 1.0/10
+        a = 6.0/5
+        coeffs = np.array([a, -2*a, a])
+
+        # Construct tridiagonal A matrix in banded form
+        ab = np.zeros((3, N))
+        ab[0, 1:] = alpha   # upper diagonal
+        ab[1, :] = 1.0      # main diagonal
+        ab[2, :-2] = alpha  # lower diagonal
+
+        B = np.zeros((N, N))
+        for i in range(1, N-1):
+            B[i, i-1:i+2] = coeffs
+
+        # One-sided stencils
+        ab[0, 1] = 10.0
+        ab[2, -2] = 10.0
+        B[0, 0:5]  = np.array([145/12, -76/3, 29/2, -4/3, 1/12])
+        B[-1, -5:] = np.array([1/12, -4/3, 29/2, -76/3, 145/12])
 
         return ab, B
 
@@ -312,7 +359,7 @@ class CompactDerivative:
         b01     = -77/5
         b02     = 55/4
         b03     = 20/3
-        b04     = -5/24
+        b04     = -5/4
         b05     = 1/5
         b06     = -1/60
 
@@ -423,7 +470,7 @@ class CompactDerivative:
         b01     = -77/5
         b02     = 55/4
         b03     = 20/3
-        b04     = -5/24
+        b04     = -5/4
         b05     = 1/5
         b06     = -1/60
 
@@ -504,8 +551,6 @@ class CompactDerivative:
 
         return ab, B
 
-
-
     def write_matrix(filename, A):
         with open(filename, "w") as f:
             for row in A:
@@ -513,6 +558,13 @@ class CompactDerivative:
                 f.write(line + '\n')
 
     def grad(self, f):
-        rhs = np.matmul(self.B, f)
-        return solve_banded(self.bands, self.ab, rhs) * self.denom
+        if self.method == "D_LU" or self.method == "D_INV":
+            return np.matmul(self.D, f) * self.denom
+        elif self.method == "LUSOLVE":
+            rhs = np.matmul(self.B, f)
+            return (blu.lu_solve_banded(self.lu_factorization, rhs, overwrite_b=True, check_finite=True) * self.denom)
+        else:
+            rhs = np.matmul(self.B, f)
+            return (solve_banded(self.bands, self.ab, rhs) * self.denom)
+        
 

@@ -5,11 +5,11 @@ import os
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from nwave import Equations, Grid
+from nwave import Equations, Grid2D
 
 
 class ScalarField(Equations):
-    def __init__(self, NU, g: Grid, bctype):
+    def __init__(self, NU, g: Grid2D, bctype):
         if bctype == "SOMMERFELD":
             apply_bc = "RHS"
         elif bctype == "REFLECT":
@@ -22,7 +22,7 @@ class ScalarField(Equations):
         self.U_PHI = 0
         self.U_CHI = 1
 
-    def rhs(self, dtu, u, g: Grid):
+    def rhs(self, dtu, u, g: Grid2D):
         dtphi = dtu[0]
         dtchi = dtu[1]
         phi = u[0]
@@ -35,23 +35,27 @@ class ScalarField(Equations):
 
         if self.bound_cond == "SOMMERFELD":
             # Sommerfeld boundary conditions
+            x = g.xi[0]
+            y = g.xi[1]
+            Nx = g.shp[0]
+            Ny = g.shp[1]
             dxphi = g.D1.grad_x(phi)
             dyphi = g.D1.grad_y(phi)
-            bc_sommerfeld(dtphi, phi, dxphi, dyphi, 1.0, 1, g.x, g.y, g.Nx, g.Ny)
+            bc_sommerfeld(dtphi, phi, dxphi, dyphi, 1.0, 1, x, y, Nx, Ny)
             dxchi = g.D1.grad_x(chi)
             dychi = g.D1.grad_y(chi)
-            bc_sommerfeld(dtchi, chi, dxchi, dychi, 1.0, 1, g.x, g.y, g.Nx, g.Ny)
+            bc_sommerfeld(dtchi, chi, dxchi, dychi, 1.0, 1, x, y, Nx, Ny)
 
-    def initialize(self, g: Grid, params):
-        x = g.x
-        y = g.y
+    def initialize(self, g: Grid2D, params):
+        x = g.xi[0]
+        y = g.xi[1]
         x0, y0 = params["id_x0"], params["id_y0"]
         amp, sigma = params["id_amp"], params["id_sigma"]
         X, Y = np.meshgrid(x, y, indexing="ij")
         self.u[0][:, :] = np.exp(-((X - x0) ** 2 + (Y - y0) ** 2) / (2 * sigma**2))
         self.u[1][:, :] = 0.0
 
-    def apply_bcs(self, u, g: Grid):
+    def apply_bcs(self, u, g: Grid2D):
         if self.bound_cond == "REFLECT":
             bc_reflect(u[0], u[1])
 

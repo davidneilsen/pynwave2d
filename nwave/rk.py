@@ -11,14 +11,12 @@ class RK4:
         self.k4 = []
         self.us = []
 
-        nx = g.Nx
-        ny = g.Ny
         for i in range(e.Nu):
-            self.k1.append(np.zeros((nx, ny)))
-            self.k2.append(np.zeros((nx, ny)))
-            self.k3.append(np.zeros((nx, ny)))
-            self.k4.append(np.zeros((nx, ny)))
-            self.us.append(np.zeros((nx, ny)))
+            self.k1.append(np.zeros(tuple(e.shp)))
+            self.k2.append(np.zeros(tuple(e.shp)))
+            self.k3.append(np.zeros(tuple(e.shp)))
+            self.k4.append(np.zeros(tuple(e.shp)))
+            self.us.append(np.zeros(tuple(e.shp)))
 
     def step(self, e: Equations, g: Grid, dt):
         nu = len(e.u)
@@ -28,6 +26,9 @@ class RK4:
         k4 = self.k4
         us = self.us
         u0 = e.u
+
+        assert(len(k4) == e.Nu), "RK: wrong number of work arrays"
+        #print(f"k3 shape = {k3[0].shape}")
 
         # Stage 1
         e.rhs(k1, u0, g)
