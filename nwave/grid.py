@@ -38,8 +38,27 @@ class Grid1D(Grid):
     def __init__(self, params):
         xi = [np.linspace(params["Xmin"], params["Xmax"], params["Nx"])]
         shp = [params["Nx"]]
-        dxn = np.array([x[1] - x[0]])
+        dxn = np.array([xi[0][1] - xi[0][0]])
         super().__init__(shp, xi, dxn)
+
+    @classmethod
+    def BH_grid(cls, nr, rmax):
+        """
+        Create a grid for a black hole simulation.
+        Parameters:
+        ----------
+        nr : int
+            Number of grid points in the radial direction.
+        rmax : float
+            Maximum radius of the grid.
+        Returns:
+        -------
+        Grid1D
+            A grid object with the specified parameters.
+        """
+        dr = rmax / (nr - 1)
+        rmin = 0.5*dr
+        return cls({"Xmin": rmin, "Xmax": rmax, "Nx": nr})
 
     def set_D1(self, d1: fd.FirstDerivative1D):
         self.D1 = d1
