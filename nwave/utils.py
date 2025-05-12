@@ -103,3 +103,9 @@ def banded_to_full(AB, kl, ku, M, N):
         i_indices = np.arange(i_min, i_max + 1)
         A[i_indices, j] = AB[ku + i_indices - j, j]
     return A
+
+def l2norm(u):
+    """
+    Compute the L2 norm of an array.
+    """
+    return np.sqrt(np.sum(u**2)/u.size)
