@@ -1,7 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from scipy.linalg import solve_banded, solve
-from . compactderivs import CompactDerivative
+from .compactderivs import CompactDerivative
 
 # Finite difference base and subclasses
 
@@ -15,16 +15,18 @@ class FirstDerivative1D(ABC):
         self.dx = dx
 
     @abstractmethod
-    def grad_x(self, u):
+    def grad_x(self, u) -> np.ndarray:
         pass
+
 
 class SecondDerivative1D(ABC):
     def __init__(self, dx):
         self.dx = dx
 
     @abstractmethod
-    def grad_xx(self, u):
+    def grad_xx(self, u) -> np.ndarray:
         raise NotImplementedError
+
 
 class FirstDerivative2D(ABC):
     def __init__(self, dx, dy):
@@ -32,12 +34,13 @@ class FirstDerivative2D(ABC):
         self.dy = dy
 
     @abstractmethod
-    def grad_x(self, u):
+    def grad_x(self, u) -> np.ndarray:
         pass
 
     @abstractmethod
-    def grad_y(self, u):
+    def grad_y(self, u) -> np.ndarray:
         pass
+
 
 class SecondDerivative2D(ABC):
     def __init__(self, dx, dy):
@@ -62,17 +65,13 @@ class ExplicitFirst44_1D(FirstDerivative1D):
         idx_by_12 = 1.0 / (12 * self.dx)
 
         # center stencil
-        dudx[2:-2] = (
-            -u[4:] + 8 * u[3:-1] - 8 * u[1:-3] + u[0:-4]
-        ) * idx_by_12
+        dudx[2:-2] = (-u[4:] + 8 * u[3:-1] - 8 * u[1:-3] + u[0:-4]) * idx_by_12
 
         # 4th order boundary stencils
         dudx[0] = (
             -25 * u[0] + 48 * u[1] - 36 * u[2] + 16 * u[3] - 3 * u[4]
         ) * idx_by_12
-        dudx[1] = (
-            -3 * u[0] - 10 * u[1] + 18 * u[2] - 6 * u[3] + u[4]
-        ) * idx_by_12
+        dudx[1] = (-3 * u[0] - 10 * u[1] + 18 * u[2] - 6 * u[3] + u[4]) * idx_by_12
         dudx[-2] = (
             -u[-5] + 6 * u[-4] - 18 * u[-3] + 10 * u[-2] + 3 * u[-1]
         ) * idx_by_12
@@ -81,6 +80,58 @@ class ExplicitFirst44_1D(FirstDerivative1D):
         ) * idx_by_12
 
         return dudx
+
+    def advec_grad_x(self, u, beta):
+        dudx = np.zeros_like(u)
+        idx_by_12 = 1.0 / (12 * self.dx)
+
+        dudx[0] = (
+            -25.0 * u[0] + 48.0 * u[1] - 36.0 * u[2] + 16.0 * u[3] - 3.0 * u[4]
+        ) * idx_by_12
+        dudx[1] = (
+            -3.0 * u[0] - 10.0 * u[1] + 18.0 * u[2] - 6.0 * u[3] + u[4]
+        ) * idx_by_12
+        if beta[2] >= 0.0:
+            dudx[2] = (
+                -3.0 * u[1] - 10.0 * u[2] + 18.0 * u[3] - 6.0 * u[4] + u[5]
+            ) * idx_by_12
+        else:
+            dudx[2] = (u[0] - 8.0 * u[1] + 8.0 * u[3] - u[4]) * idx_by_12
+
+        for i in range(3, len(u) - 3):
+            if beta[i] >= 0.0:
+                dudx[i] = (
+                    -3.0 * u[i - 1]
+                    - 10.0 * u[i]
+                    + 18.0 * u[i + 1]
+                    - 6.0 * u[i + 2]
+                    + u[i + 3]
+                ) * idx_by_12
+            else:
+                dudx[i] = (
+                    3.0 * u[i + 1]
+                    + 10.0 * u[i]
+                    - 18.0 * u[i - 1]
+                    + 6.0 * u[i - 2]
+                    - u[i - 3]
+                ) * idx_by_12
+
+        if beta[-3] >= 0.0:
+            dudx[-3] = (u[-5] - 8.0 * u[-4] + 8.0 * u[-2] - u[-1]) * idx_by_12
+        else:
+            dudx[-3] = (
+                3.0 * u[-2] + 10.0 * u[-3] - 18.0 * u[-4] + 6.0 * u[-5] - u[-6]
+            ) * idx_by_12
+
+        dudx[-2] = (
+            -u[-5] + 6.0 * u[-4] - 18.0 * u[-3] + 10.0 * u[-2] + 3.0 * u[-1]
+        ) * idx_by_12
+        dudx[-1] = (
+            3.0 * u[-5] - 16.0 * u[-4] + 36.0 * u[-3] - 48.0 * u[-2] + 25.0 * u[-1]
+        ) * idx_by_12
+
+        return dudx
+
 
 class ExplicitSecond44_1D(SecondDerivative1D):
     def __init__(self, dx):
@@ -97,28 +148,13 @@ class ExplicitSecond44_1D(SecondDerivative1D):
 
         # boundary stencils
         dxxu[0] = (
-            45 * u[0]
-            - 154 * u[1]
-            + 214 * u[2]
-            - 156 * u[3]
-            + 61 * u[4]
-            - 10 * u[5]
+            45 * u[0] - 154 * u[1] + 214 * u[2] - 156 * u[3] + 61 * u[4] - 10 * u[5]
         ) * idx_sqrd_by_12
         dxxu[1] = (
-            10 * u[0]
-            - 15 * u[1]
-            - 4 * u[2]
-            + 14 * u[3]
-            - 6 * u[4]
-            + u[5]
+            10 * u[0] - 15 * u[1] - 4 * u[2] + 14 * u[3] - 6 * u[4] + u[5]
         ) * idx_sqrd_by_12
         dxxu[-2] = (
-            u[-6]
-            - 6 * u[-5]
-            + 14 * u[-4]
-            - 4 * u[-3]
-            - 15 * u[-2]
-            + 10 * u[-1]
+            u[-6] - 6 * u[-5] + 14 * u[-4] - 4 * u[-3] - 15 * u[-2] + 10 * u[-1]
         ) * idx_sqrd_by_12
         dxxu[-1] = (
             -10 * u[-6]
@@ -129,6 +165,7 @@ class ExplicitSecond44_1D(SecondDerivative1D):
             + 45 * u[-1]
         ) * idx_sqrd_by_12
         return dxxu
+
 
 class ExplicitFirst44_2D(FirstDerivative2D):
     def __init__(self, dx, dy):
@@ -159,7 +196,7 @@ class ExplicitFirst44_2D(FirstDerivative2D):
 
         return dudx
 
-    def grad_y(self, u):
+    def grad_y(self, u) -> np.ndarray:
         dudy = np.zeros_like(u)
         idy_by_12 = 1.0 / (12 * self.dy)
 
@@ -304,6 +341,7 @@ class CompactFirst2D(FirstDerivative2D):
         du = self.dyf.grad(np.transpose(u))
         return np.transpose(du)
 
+
 class CompactSecond2D(SecondDerivative2D):
     def __init__(self, x, y, type, method="SCIPY"):
         self.Nx = len(x)
@@ -328,4 +366,3 @@ class CompactSecond2D(SecondDerivative2D):
         # Apply compact scheme column-wise (derivative in y)
         du = self.dyyf.grad(np.transpose(u))
         return np.transpose(du)
-

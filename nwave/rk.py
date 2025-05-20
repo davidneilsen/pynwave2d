@@ -1,5 +1,5 @@
-from . eqs import Equations
-from . grid import Grid
+from .eqs import Equations
+from .grid import Grid
 import numpy as np
 
 
@@ -27,8 +27,8 @@ class RK4:
         us = self.us
         u0 = e.u
 
-        assert(len(k4) == e.Nu), "RK: wrong number of work arrays"
-        #print(f"k3 shape = {k3[0].shape}")
+        assert len(k4) == e.Nu, "RK: wrong number of work arrays"
+        # print(f"k3 shape = {k3[0].shape}")
 
         # Stage 1
         e.rhs(k1, u0, g)

@@ -1,13 +1,14 @@
 from abc import ABC, abstractmethod
 import numpy as np
-from . grid import Grid
+from .grid import Grid
+
 
 class Equations(ABC):
     """
     Abstract base class for a system of PDEs.
     """
 
-    def __init__(self, NU, g : Grid, apply_bc=None):
+    def __init__(self, NU, g: Grid, apply_bc=None):
         """
         Initialize the PDE system.
 
@@ -18,8 +19,8 @@ class Equations(ABC):
             The spatial grid
 
         apply_bc : "FUNCTION" or "RHS" or None
-            Specifies how boundary conditions are applied, either in the 
-            RHS routine, or applied to the function after each stage of 
+            Specifies how boundary conditions are applied, either in the
+            RHS routine, or applied to the function after each stage of
             the time integrator.
         """
 
@@ -34,26 +35,26 @@ class Equations(ABC):
         else:
             self.apply_bc = None
 
-        for i in range (NU):
+        for i in range(NU):
             d = np.zeros(tuple(self.shp))
             self.u.append(d)
- 
+
     @abstractmethod
-    def rhs(dtu, u, g : Grid):
+    def rhs(self, dtu, u, g: Grid):
         """
         The RHS update.
         """
         pass
 
     @abstractmethod
-    def apply_bcs(u, g : Grid):
+    def apply_bcs(self, u, g: Grid):
         """
         Routine to apply boundary conditions called from time integrator.
         """
         pass
 
     @abstractmethod
-    def initialize(self, g : Grid, params):
+    def initialize(self, g: Grid, params):
         """
         Set the initial data
         """

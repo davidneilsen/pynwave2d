@@ -1,18 +1,21 @@
 import numpy as np
 from abc import ABC, abstractmethod
+#from pdb import set_trace as bp
 from . import finitederivs as fd
 
+
 class Grid(ABC):
-    def __init__(self, shp, xi, dx):
+    def __init__(self, shp, xi, dx, nghost=0):
         """
         Abstract class to define a grid for a PDE system.
-        Parameters: 
+        Parameters:
         """
         self.shp = shp
         self.xi = xi
         self.dx = dx
         self.D1 = None
         self.D2 = None
+        self.nghost = nghost
 
     @abstractmethod
     def set_D1(self, d1):
@@ -20,12 +23,34 @@ class Grid(ABC):
         Set the first derivative operator.
         """
         pass
+
     @abstractmethod
     def set_D2(self, d2):
         """
         Set the second derivative operator.
         """
         pass
+
+    def get_shape(self):
+        """
+        Get the shape of the grid.
+        Returns:
+        -------
+        tuple
+            Shape of the grid.
+        """
+        return self.shp
+
+    def get_nghost(self):
+        """
+        Get the number of ghost cells.
+        Returns:
+        -------
+        int
+            Number of ghost cells.
+        """
+        return self.nghost
+
 
 class Grid1D(Grid):
     """
@@ -35,11 +60,33 @@ class Grid1D(Grid):
     Nx : int
         Number of grid points in the x-direction.
     """
-    def __init__(self, params):
-        xi = [np.linspace(params["Xmin"], params["Xmax"], params["Nx"])]
-        shp = [params["Nx"]]
-        dxn = np.array([xi[0][1] - xi[0][0]])
-        super().__init__(shp, xi, dxn)
+
+    def __init__(self, params, cell_centered=False):
+        if "Nx" not in params:
+            raise ValueError("Nx is required")
+
+        nx = params["Nx"]
+        ng = params.get("NGhost", 0)
+
+        xmin = params.get("Xmin", 0.0)
+        xmax = params.get("Xmax", 1.0)
+        dx = (xmax - xmin) / (nx - 1)
+
+        if cell_centered:
+            xmin += 0.5 * dx
+            xmax += 0.5 * dx
+
+        nx = nx + 2 * ng
+        xmin -= ng * dx
+        xmax += ng * dx
+
+        shp = [nx]
+
+        xi = [np.linspace(xmin, xmax, nx)]
+        dxn = np.array([dx])
+
+        # bp()
+        super().__init__(shp, xi, dxn, ng)
 
     @classmethod
     def BH_grid(cls, nr, rmax):
@@ -57,7 +104,7 @@ class Grid1D(Grid):
             A grid object with the specified parameters.
         """
         dr = rmax / (nr - 1)
-        rmin = 0.5*dr
+        rmin = 0.5 * dr
         return cls({"Xmin": rmin, "Xmax": rmax, "Nx": nr})
 
     def set_D1(self, d1: fd.FirstDerivative1D):
@@ -65,6 +112,7 @@ class Grid1D(Grid):
 
     def set_D2(self, d2: fd.SecondDerivative1D):
         self.D2 = d2
+
 
 class Grid2D(Grid):
     """
@@ -76,13 +124,38 @@ class Grid2D(Grid):
     Ny : int
         Number of grid points in the y-direction.
     """
+
     def __init__(self, params):
-        shp = [params["Nx"], params["Ny"]]
-        xi = [ np.linspace(params["Xmin"], params["Xmax"], params["Nx"]),
-                       np.linspace(params["Ymin"], params["Ymax"], params["Ny"]) ]
-        dxn = np.array([xi[0][1] - xi[0][0], xi[1][1] - xi[1][0]])
+        if "Nx" not in params:
+            raise ValueError("Nx is required")
+        if "Ny" not in params:
+            raise ValueError("Ny is required")
+
+        nx = params["Nx"]
+        ny = params["Ny"]
+        xmin = params.get("Xmin", 0.0)
+        xmax = params.get("Xmax", 1.0)
+        ymin = params.get("Ymin", 0.0)
+        ymax = params.get("Ymax", 1.0)
+
+        dx = (xmax - xmin) / (nx - 1)
+        dy = (ymax - ymin) / (ny - 1)
+
+        ng = params.get("NGhost", 0)
+        nx = nx + 2 * ng
+        ny = ny + 2 * ng
+        xmin -= ng * dx
+        xmax += ng * dx
+        ymin -= ng * dy
+        ymax += ng * dy
+
+        shp = [nx, ny]
+
+        xi = [np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny)]
+
+        dxn = np.array([dx, dy])
         print(f"Grid2D: {shp}, {xi}, {dxn}")
-        super().__init__(shp, xi, dxn)
+        super().__init__(shp, xi, dxn, ng)
 
     def set_D1(self, d1: fd.FirstDerivative2D):
         self.D1 = d1
