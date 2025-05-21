@@ -7,7 +7,7 @@ from numba import njit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from nwave import Equations, Grid, l2norm
 
-DEBUG = False
+DEBUG = True
 
 
 class GBSSNSystem:
@@ -90,6 +90,58 @@ class BSSN(Equations):
         self.u_names = ["chi", "grr", "gtt", "Arr", "K", "Gt", "alpha", "beta", "gB"]
         self.c_names = ["ham", "mom", "gamcom"]
 
+    def initialize(self, g: Grid, params):
+        """
+        Initial data for the BSSN equations.  This is a simple
+        Schwarzschild solution in isotropic coordinates.
+        """
+        if params["initial_data"] == "Puncture":
+            self.initial_data_puncture(g, params)
+        elif params["initial_data"] == "EddingtonFinkelstein":
+            self.initial_data_ef(g)
+        else:
+            raise ValueError("Invalid initial data. Must be 'puncture' or 'EddingtonFinkelstein'.")
+
+    def initial_data_puncture(self, g: Grid, params):
+        """
+        Initial data for the BSSN equations.  This is a simple
+        Schwarzschild solution in isotropic coordinates.
+        """
+        r = g.xi[0]
+        if params["collapsed_lapse"] == True:
+            self.u[self.U_ALPHA][:] = 1.0 / (1.0 + self.M / (2 * abs(r))) ** 2
+        else:
+            self.u[self.U_ALPHA].fill(1.0)
+
+        self.u[self.U_CHI][:] = 1.0 / (1.0 + self.M / (2 * abs(r))) ** (4)
+        self.u[self.U_GRR][:] = 1.0
+        self.u[self.U_GTT][:] = r**2
+        self.u[self.U_ARR][:] = 0.0
+        self.u[self.U_K][:] = 0.0
+        self.u[self.U_GT][:] = -2.0 / r
+        self.u[self.U_SHIFT][:] = 0.0
+        self.u[self.U_GB][:] = 0.0
+
+    def initial_data_ef(self, g: Grid):
+        """
+        Initial data for the BSSN equations.  This is a simple
+        Schwarzschild solution in Eddington-Finkelstein coordinates.
+        """
+        r = np.abs(g.xi[0])
+        H = np.zeros_like(r)
+        m = self.M
+
+        H[:] = 2.0*m / r
+        self.u[self.U_ALPHA][:] = 1.0/np.sqrt(1.0 + H)
+        self.u[self.U_CHI][:] = 1.0 / (1.0 + H)**(1.0/3.0)
+        self.u[self.U_GRR][:] = (1.0 + H)**(2.0/3.0)
+        self.u[self.U_GTT][:] = r**2/(1.0 + H)**(1.0/3.0)
+        self.u[self.U_ARR][:] = -4.0*m*(1.0 + H)**(1.0/6.0)*(3.0*m + 2.0*r) / (3.0*r*r*(r + 2.0*m))
+        self.u[self.U_K][:] = 2*m*(r + 3.0*m) / (r*r*(2.0*m + r)*np.sqrt(1.0 + H))
+        self.u[self.U_GT][:] = -2.0*(8*m + 3*r)*(1.0 + H)**(1.0/3.0) / (3.0*(2.0*m + r)**2)
+        self.u[self.U_SHIFT][:] = H / (1 + H)
+        self.u[self.U_GB][:] = 0.0
+
     def rhs(self, dtu, u, g: Grid):
         v = self.gbssn_system.eqs
         lambda_lapse = self.gbssn_system.lapse
@@ -117,32 +169,45 @@ class BSSN(Equations):
 
         if g.D1 is None or g.D2 is None:
             raise AttributeError(
-                "Grid object 'g' must have non-None D1 and D2 attributes with 'grad_x' and 'grad_xx' methods."
+                "Grid object 'g' must have non-None D1 and D2 attributes with 'grad' and 'grad2' methods."
             )
 
-        d_alpha = g.D1.grad_x(alpha)
-        d_beta_r = g.D1.grad_x(beta_r)
-        d_chi = g.D1.grad_x(chi)
-        d_g_rr = g.D1.grad_x(g_rr)
-        d_g_tt = g.D1.grad_x(g_tt)
-        d_K = g.D1.grad_x(K)
-        d_Gamma_r = g.D1.grad_x(Gamma_r)
+        d_alpha = g.D1.grad(alpha)
+        d_beta_r = g.D1.grad(beta_r)
+        d_chi = g.D1.grad(chi)
+        d_g_rr = g.D1.grad(g_rr)
+        d_g_tt = g.D1.grad(g_tt)
+        d_K = g.D1.grad(K)
+        d_Gamma_r = g.D1.grad(Gamma_r)
 
-        ad_alpha = g.D1.advec_grad_x(alpha, beta_r)
-        ad_beta_r = g.D1.advec_grad_x(beta_r, beta_r)
-        ad_B_r = g.D1.advec_grad_x(B_r, beta_r)
-        ad_chi = g.D1.advec_grad_x(chi, beta_r)
-        ad_g_rr = g.D1.advec_grad_x(g_rr, beta_r)
-        ad_g_tt = g.D1.advec_grad_x(g_tt, beta_r)
-        ad_K = g.D1.advec_grad_x(K, beta_r)
-        ad_A_rr = g.D1.advec_grad_x(A_rr, beta_r)
-        ad_Gamma_r = g.D1.advec_grad_x(Gamma_r, beta_r)
+        USE_ADVECTION = False
+        if USE_ADVECTION and g.D1.HAVE_ADVECTIVE_DERIV:
+            # Advection terms
+            ad_B_r = g.D1.advec_grad(B_r, beta_r)
+            ad_alpha = g.D1.advec_grad(alpha, beta_r)
+            ad_beta_r = g.D1.advec_grad(beta_r, beta_r)
+            ad_g_rr = g.D1.advec_grad(g_rr, beta_r)
+            ad_g_tt = g.D1.advec_grad(g_tt, beta_r)
+            ad_A_rr = g.D1.advec_grad(A_rr, beta_r)
+            ad_K = g.D1.advec_grad(K, beta_r)
+            ad_Gamma_r = g.D1.advec_grad(Gamma_r, beta_r)
+            ad_chi = g.D1.advec_grad(chi, beta_r)
+        else:
+            ad_alpha = d_alpha
+            ad_beta_r = d_beta_r
+            ad_B_r = g.D1.grad(B_r)
+            ad_chi = d_chi
+            ad_g_rr = d_g_rr
+            ad_g_tt = d_g_tt
+            ad_K = d_K
+            ad_A_rr = g.D1.grad(A_rr)
+            ad_Gamma_r = d_Gamma_r
 
-        d2_chi = g.D2.grad_xx(chi)
-        d2_g_rr = g.D2.grad_xx(g_rr)
-        d2_g_tt = g.D2.grad_xx(g_tt)
-        d2_alpha = g.D2.grad_xx(alpha)
-        d2_beta_r = g.D2.grad_xx(beta_r)
+        d2_chi = g.D2.grad2(chi)
+        d2_g_rr = g.D2.grad2(g_rr)
+        d2_g_tt = g.D2.grad2(g_tt)
+        d2_alpha = g.D2.grad2(alpha)
+        d2_beta_r = g.D2.grad2(beta_r)
 
         BSSN.rhs_chi(
             chi_rhs,
@@ -252,14 +317,15 @@ class BSSN(Equations):
         Gamma_r_rhs[-2:] = 0.0
 
         if DEBUG:
-            print("d_alpha = ", l2norm(alpha_rhs))
-            print("d_beta_r = ", l2norm(beta_r_rhs))
-            print("d_chi = ", l2norm(chi_rhs))
-            print("d_g_rr = ", l2norm(g_rr_rhs))
-            print("d_g_tt = ", l2norm(g_tt_rhs))
-            print("d_A_rr = ", l2norm(A_rr_rhs))
-            print("d_K = ", l2norm(K_rhs))
-            print("d_Gamma_r = ", l2norm(Gamma_r_rhs))
+            print("dt_alpha = ", l2norm(alpha_rhs[10:]))
+            print("dt_beta_r = ", l2norm(beta_r_rhs[10:]))
+            print("dt_chi = ", l2norm(chi_rhs[10:]))
+            print("dt_g_rr = ", l2norm(g_rr_rhs[10:]))
+            print("dt_g_tt = ", l2norm(g_tt_rhs[10:]))
+            print("dt_A_rr = ", l2norm(A_rr_rhs[10:]))
+            print("dt_K = ", l2norm(K_rhs[10:]))
+            print("dt_Gamma_r = ", l2norm(Gamma_r_rhs[10:]))
+            sys.exit(0)
 
     @staticmethod
     @njit
@@ -486,22 +552,6 @@ class BSSN(Equations):
             - eta * B_r
         )
 
-    def initialize(self, g: Grid, params):
-        """
-        Initial data for the BSSN equations.  This is a simple
-        Schwarzschild solution in isotropic coordinates.
-        """
-        r = g.xi[0]
-        self.u[self.U_ALPHA][:] = 1.0 / (1.0 + self.M / (2 * abs(r))) ** 2
-        self.u[self.U_CHI][:] = 1.0 / (1.0 + self.M / (2 * abs(r))) ** (4)
-        self.u[self.U_GRR][:] = 1.0
-        self.u[self.U_GTT][:] = r**2
-        self.u[self.U_ARR][:] = 0.0
-        self.u[self.U_K][:] = 0.0
-        self.u[self.U_GT][:] = -2.0 / r
-        self.u[self.U_SHIFT][:] = 0.0
-        self.u[self.U_GB][:] = 0.0
-
     def apply_bcs(self, u, g: Grid):
         """
         Regularity conditions at the origin.  (This routine called from RK4.)
@@ -557,17 +607,17 @@ class BSSN(Equations):
 
         if g.D1 is None or g.D2 is None:
             raise AttributeError(
-                "Grid object 'g' must have non-None D1 and D2 attributes with 'grad_x' and 'grad_xx' methods."
+                "Grid object 'g' must have non-None D1 and D2 attributes with 'grad' and 'grad2' methods."
             )
 
-        d_chi = g.D1.grad_x(chi)
-        d_g_rr = g.D1.grad_x(g_rr)
-        d_g_tt = g.D1.grad_x(g_tt)
-        d_A_rr = g.D1.grad_x(A_rr)
-        d_K = g.D1.grad_x(K)
+        d_chi = g.D1.grad(chi)
+        d_g_rr = g.D1.grad(g_rr)
+        d_g_tt = g.D1.grad(g_tt)
+        d_A_rr = g.D1.grad(A_rr)
+        d_K = g.D1.grad(K)
 
-        d2_chi = g.D2.grad_xx(chi)
-        d2_g_tt = g.D2.grad_xx(g_tt)
+        d2_chi = g.D2.grad2(chi)
+        d2_g_tt = g.D2.grad2(g_tt)
 
         BSSN.get_constraints(
             Ham,
@@ -700,3 +750,4 @@ def set_inner_regularity(u, ng, parity=1):
     Apply inner boundary condition at the origin.
     """
     u[:ng] = parity * u[2 * ng - 1 : ng - 1 : -1]
+

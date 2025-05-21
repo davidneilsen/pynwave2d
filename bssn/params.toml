@@ -1,0 +1,19 @@
+Nt = 1
+Nx = 10001
+Xmax = 10.0
+
+NGhost = 0
+cfl = 0.1
+eta = 2.0
+D1 = "E6"
+D2 = "E6"
+
+# initial data types = [ "Puncture", "EddingtonFinkelstein" ]
+Mass = 1.0
+collapsed_lapse = true
+initial_data = "EddingtonFinkelstein"
+
+# output parameters
+output_dir = "output_bssn"
+output_interval = 1
+print_interval = 1

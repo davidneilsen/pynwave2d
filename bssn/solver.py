@@ -7,14 +7,17 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import bssneqs as bssn
-import json
+import tomllib
 from nwave import (
     Grid1D,
     RK4,
     Equations,
     ExplicitFirst44_1D,
     ExplicitSecond44_1D,
-    CompactDerivative,
+    ExplicitFirst642_1D,
+    ExplicitSecond642_1D,
+    CompactFirst1D,
+    CompactSecond1D,
     l2norm,
 )
 
@@ -35,18 +38,35 @@ def write_curve(filename, time, x, eqs):
 
 def main():
     # Read parameters
-    with open("params.json") as f:
-        params = json.load(f)
+    with open("params.toml", "rb") as f:
+        params = tomllib.load(f)
 
     g = Grid1D(params, cell_centered=True)
     r = g.xi[0]
     dr = g.dx[0]
-    D1 = ExplicitFirst44_1D(dr)
-    D2 = ExplicitSecond44_1D(dr)
-    # D1 = CompactDerivative(r, "D1_JTP6", method="LUSOLVE")
-    # D2 = CompactDerivative(r, "D2_JTP6", method="LUSOLVE")
-    g.set_D1(D1)
-    g.set_D2(D2)
+    if params["D1"] == "E4":
+        D1 = ExplicitFirst44_1D(dr)
+        g.set_D1(D1)
+    elif params["D1"] == "E6":
+        D1 = ExplicitFirst642_1D(dr)
+        g.set_D1(D1)
+    elif params["D1"] == "JP6":
+        D1 = CompactFirst1D(r, "D1_JTP6", method="LUSOLVE")
+        g.set_D1(D1)
+    else:
+        raise NotImplementedError("D1 = { E4, E6, JP6 }")
+
+    if params["D2"] == "E4":
+        D2 = ExplicitSecond44_1D(dr)
+        g.set_D2(D2)
+    elif params["D2"] == "E6":
+        D2 = ExplicitSecond642_1D(dr)
+        g.set_D2(D2)
+    elif params["D2"] == "JP6":
+        D2 = CompactSecond1D(r, "D2_JTP6", method="LUSOLVE")
+        g.set_D2(D2)
+    else:
+        raise NotImplementedError("D2 = { E4, E6, JP6 }")
 
     # GBSSN system: (sys, lapse advection, shift advection)
     #    sys = 0 (Eulerian), 1 (Lagrangian)

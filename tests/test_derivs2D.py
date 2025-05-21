@@ -39,7 +39,7 @@ def func2(x, y):
     return f, dxf, dyf, dxxf, dyyf
 
 
-with open("params.json") as f:
+with open("params2D.json") as f:
     params = json.load(f)
 
 g = Grid2D(params)
