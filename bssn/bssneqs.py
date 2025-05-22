@@ -7,7 +7,7 @@ from numba import njit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from nwave import Equations, Grid, l2norm
 
-DEBUG = True
+DEBUG = False
 
 
 class GBSSNSystem:
@@ -180,7 +180,7 @@ class BSSN(Equations):
         d_K = g.D1.grad(K)
         d_Gamma_r = g.D1.grad(Gamma_r)
 
-        USE_ADVECTION = False
+        USE_ADVECTION = True
         if USE_ADVECTION and g.D1.HAVE_ADVECTIVE_DERIV:
             # Advection terms
             ad_B_r = g.D1.advec_grad(B_r, beta_r)
@@ -317,6 +317,7 @@ class BSSN(Equations):
         Gamma_r_rhs[-2:] = 0.0
 
         if DEBUG:
+            print("v = ",v)
             print("dt_alpha = ", l2norm(alpha_rhs[10:]))
             print("dt_beta_r = ", l2norm(beta_r_rhs[10:]))
             print("dt_chi = ", l2norm(chi_rhs[10:]))
@@ -382,7 +383,7 @@ class BSSN(Equations):
                 - (2.0 / 3.0) * d_chi[i] * d_alpha[i]
                 - alpha[i] * chi[i] * d2_g_rr[i] * inv_g_rr[i] / 3.0
                 + alpha[i] * chi[i] * d2_g_tt[i] * inv_g_tt[i] / 3.0
-                - (2.0 / 3.0) * d2_alpha[i]
+                - (2.0 / 3.0) * chi[i] * d2_alpha[i]
                 + alpha[i] * d2_chi[i] / 3.0
             )
 
