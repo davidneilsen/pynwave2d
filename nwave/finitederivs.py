@@ -19,6 +19,7 @@ class FirstDerivative1D(ABC):
     def grad(self, u) -> np.ndarray:
         pass
 
+
 class SecondDerivative1D(ABC):
     def __init__(self, dx):
         self.dx = dx
@@ -26,6 +27,7 @@ class SecondDerivative1D(ABC):
     @abstractmethod
     def grad2(self, u) -> np.ndarray:
         raise NotImplementedError
+
 
 class FirstDerivative2D(ABC):
     def __init__(self, dx, dy):
@@ -40,6 +42,7 @@ class FirstDerivative2D(ABC):
     def grad_y(self, u) -> np.ndarray:
         pass
 
+
 class SecondDerivative2D(ABC):
     def __init__(self, dx, dy):
         self.dx = dx
@@ -52,6 +55,7 @@ class SecondDerivative2D(ABC):
     @abstractmethod
     def grad_yy(self, u):
         raise NotImplementedError
+
 
 class CompactFirst1D(FirstDerivative1D):
     def __init__(self, x, type, method="SCIPY"):
@@ -67,6 +71,7 @@ class CompactFirst1D(FirstDerivative1D):
     def grad(self, u):
         # Apply compact scheme row-wise (derivative in x)
         return self.dxf.grad(u)
+
 
 class CompactSecond1D(SecondDerivative1D):
     def __init__(self, x, type, method="SCIPY"):

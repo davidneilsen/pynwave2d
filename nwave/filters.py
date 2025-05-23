@@ -44,6 +44,7 @@ class Filter1D(ABC):
     def get_apply_filter(self):
         return self.apply_filter
 
+
 class Filter2D(ABC):
     """
     Abstract base class for a filters
@@ -64,14 +65,13 @@ class Filter2D(ABC):
     def get_apply_filter(self):
         return self.apply_filter
 
+
 class KreissOligerFilterO6_1D(Filter1D):
     """
     Kreiss-Oliger filter in 1D
     """
 
-    def __init__(
-        self, dx, sigma, apply_diss_boundaries=True
-    ):
+    def __init__(self, dx, sigma, apply_diss_boundaries=True):
         self.sigma = sigma
         self.APPLY_DISS_BOUNDARIES = apply_diss_boundaries
         apply_filter = FilterApply.RHS
@@ -106,28 +106,41 @@ class KreissOligerFilterO6_1D(Filter1D):
             spr2 = smr2
             spr1 = smr1
             du[0] = sigma * (-u[0] + 3.0 * u[1] - 3.0 * u[2] + u[3]) / smr3
-            du[1] = sigma * (3.0 * u[0] - 10.0 * u[1] + 12.0 * u[2] - 6.0 * u[3] + u[4]) / smr2
-            du[2] = sigma * (
-                -3.0 * u[0]
-                + 12.0 * u[1]
-                - 19.0 * u[2]
-                + 15.0 * u[3]
-                - 6.0 * u[4]
-                + u[5]
-            ) / smr1
-            du[-3] = sigma * (
-                u[-6]
-                - 6.0 * u[-5]
-                + 15.0 * u[-4]
-                - 19.0 * u[-3]
-                + 12.0 * u[-2]
-                - 3.0 * u[-1]
-            ) / spr1
-            du[-2] = sigma * (
-                u[-5] - 6.0 * u[-4] + 12.0 * u[-3] - 10.0 * u[-2] + 3.0 * u[-1]
-            ) / spr2
+            du[1] = (
+                sigma
+                * (3.0 * u[0] - 10.0 * u[1] + 12.0 * u[2] - 6.0 * u[3] + u[4])
+                / smr2
+            )
+            du[2] = (
+                sigma
+                * (
+                    -3.0 * u[0]
+                    + 12.0 * u[1]
+                    - 19.0 * u[2]
+                    + 15.0 * u[3]
+                    - 6.0 * u[4]
+                    + u[5]
+                )
+                / smr1
+            )
+            du[-3] = (
+                sigma
+                * (
+                    u[-6]
+                    - 6.0 * u[-5]
+                    + 15.0 * u[-4]
+                    - 19.0 * u[-3]
+                    + 12.0 * u[-2]
+                    - 3.0 * u[-1]
+                )
+                / spr1
+            )
+            du[-2] = (
+                sigma
+                * (u[-5] - 6.0 * u[-4] + 12.0 * u[-3] - 10.0 * u[-2] + 3.0 * u[-1])
+                / spr2
+            )
             du[-1] = sigma * (u[-4] - 3.0 * u[-3] + 3.0 * u[-2] - u[-1]) / spr3
-
 
 
 class KreissOligerFilterO8_1D(Filter1D):
@@ -135,7 +148,7 @@ class KreissOligerFilterO8_1D(Filter1D):
     Kreiss-Oliger filter in 1D
     """
 
-    def __init__( self, dx, sigma, apply_diss_boundaries=True):
+    def __init__(self, dx, sigma, apply_diss_boundaries=True):
         self.sigma = sigma
         self.APPLY_DISS_BOUNDARIES = apply_diss_boundaries
         apply_filter = FilterApply.RHS
@@ -174,14 +187,57 @@ class KreissOligerFilterO8_1D(Filter1D):
             spr2 = smr2
             spr1 = smr1
             du[0] = sigma * (-u[5] + 4.0 * u[4] - 6.0 * u[3] + 4.0 * u[1] - u[5]) / smr4
-            du[1] = sigma * (2.0 * u[4] - 9.0 * u[3] + 15.0 * u[2] - 11.0 * u[1] + 3.0 * u[0]) / smr3
-            du[2] = sigma * (-u[5] + 3.0 * u[4] - 8.0 * u[2] + 9.0 * u[1] - 3.0 * u[0]) / smr2
-            du[3] = sigma * ( -u[6] + 6.0 * u[5] - 14.0 * u[4] + 15.0 * u[3] - 6.0 * u[2] - u[1] + u[0]) / smr1
-            du[-1] = sigma * (-u[-5] + 4.0 * u[-4] - 6.0 * u[-3] + 4.0 * u[-2] - u[-1]) / spr4
-            du[-2] = sigma * (2.0 * u[-5] - 9 * u[-4] + 15.0 * u[-3] - 11.0 * u[-2] + 3.0 * u[-1]) / spr3
-            du[-3] = sigma * (-u[-6] + 3.0 * u[-5] - 8.0 * u[-3] + 9.0 * u[-2] - 3.0 * u[-1]) / spr2
-            du[-4] = sigma * ( -u[-7] + 6.0 * u[-6] - 14.0 * u[-5] + 15.0 * u[-4] - 6.0 * u[-3] - u[-2] + u[-1]) / spr1
-
+            du[1] = (
+                sigma
+                * (2.0 * u[4] - 9.0 * u[3] + 15.0 * u[2] - 11.0 * u[1] + 3.0 * u[0])
+                / smr3
+            )
+            du[2] = (
+                sigma
+                * (-u[5] + 3.0 * u[4] - 8.0 * u[2] + 9.0 * u[1] - 3.0 * u[0])
+                / smr2
+            )
+            du[3] = (
+                sigma
+                * (
+                    -u[6]
+                    + 6.0 * u[5]
+                    - 14.0 * u[4]
+                    + 15.0 * u[3]
+                    - 6.0 * u[2]
+                    - u[1]
+                    + u[0]
+                )
+                / smr1
+            )
+            du[-1] = (
+                sigma
+                * (-u[-5] + 4.0 * u[-4] - 6.0 * u[-3] + 4.0 * u[-2] - u[-1])
+                / spr4
+            )
+            du[-2] = (
+                sigma
+                * (2.0 * u[-5] - 9 * u[-4] + 15.0 * u[-3] - 11.0 * u[-2] + 3.0 * u[-1])
+                / spr3
+            )
+            du[-3] = (
+                sigma
+                * (-u[-6] + 3.0 * u[-5] - 8.0 * u[-3] + 9.0 * u[-2] - 3.0 * u[-1])
+                / spr2
+            )
+            du[-4] = (
+                sigma
+                * (
+                    -u[-7]
+                    + 6.0 * u[-6]
+                    - 14.0 * u[-5]
+                    + 15.0 * u[-4]
+                    - 6.0 * u[-3]
+                    - u[-2]
+                    + u[-1]
+                )
+                / spr1
+            )
 
 
 """

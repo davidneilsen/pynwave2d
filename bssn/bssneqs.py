@@ -44,7 +44,15 @@ class BSSN(Equations):
     The equations are from the paper "BSSN in Spherical Symmetry" by J. David Brown (2008).
     """
 
-    def __init__(self, g, M, eta, extended_domain, apply_bc=None, gbssn_system=GBSSNSystem(1, 1, 1)):
+    def __init__(
+        self,
+        g,
+        M,
+        eta,
+        extended_domain,
+        apply_bc=None,
+        gbssn_system=GBSSNSystem(1, 1, 1),
+    ):
         """
         Initialize the BSSN equations.
         Parameters
@@ -90,12 +98,28 @@ class BSSN(Equations):
         self.GAMCON = 2
         self.u_names = ["chi", "grr", "gtt", "Arr", "K", "Gt", "alpha", "beta", "gB"]
         self.c_names = ["ham", "mom", "gamcom"]
-        self.u_falloff = [1, 1, 1,  # chi, grr, gtt
-                          2, 2, 2,  # Arr, K, Gt
-                          0, 1, 1]  # alpha, beta, gB
-        self.u_inf = [1, 1, 1,  #chi, grr, gtt
-                      0, 0, 0,  # Arr, K, Gt
-                      1, 0, 0]  # alpha, beta, gB
+        self.u_falloff = [
+            1,
+            1,
+            1,  # chi, grr, gtt
+            2,
+            2,
+            2,  # Arr, K, Gt
+            0,
+            1,
+            1,
+        ]  # alpha, beta, gB
+        self.u_inf = [
+            1,
+            1,
+            1,  # chi, grr, gtt
+            0,
+            0,
+            0,  # Arr, K, Gt
+            1,
+            0,
+            0,
+        ]  # alpha, beta, gB
 
     def initialize(self, g: Grid, params):
         """
@@ -106,10 +130,14 @@ class BSSN(Equations):
             self.initial_data_puncture(g, params)
         elif params["initial_data"] == "EddingtonFinkelstein":
             if self.gbssn_system.eqs == 0:
-                raise ValueError("Eddington-Finkelstein initial data is not valid for Eulerian system.")
+                raise ValueError(
+                    "Eddington-Finkelstein initial data is not valid for Eulerian system."
+                )
             self.initial_data_ef(g)
         else:
-            raise ValueError("Invalid initial data. Must be 'puncture' or 'EddingtonFinkelstein'.")
+            raise ValueError(
+                "Invalid initial data. Must be 'puncture' or 'EddingtonFinkelstein'."
+            )
 
     def initial_data_puncture(self, g: Grid, params):
         """
@@ -142,14 +170,27 @@ class BSSN(Equations):
         H = np.zeros_like(r)
         m = self.M
 
-        H[:] = 2.0*m / r
-        self.u[self.U_ALPHA][:] = 1.0/np.sqrt(1.0 + H)
-        self.u[self.U_CHI][:] = 1.0 / (1.0 + H)**(1.0/3.0)
-        self.u[self.U_GRR][:] = (1.0 + H)**(2.0/3.0)
-        self.u[self.U_GTT][:] = r**2/(1.0 + H)**(1.0/3.0)
-        self.u[self.U_ARR][:] = -4.0*m*(1.0 + H)**(1.0/6.0)*(3.0*m + 2.0*r) / (3.0*r*r*(r + 2.0*m))
-        self.u[self.U_K][:] = 2*m*(r + 3.0*m) / (r*r*(2.0*m + r)*np.sqrt(1.0 + H))
-        self.u[self.U_GT][:] = -2.0*(8*m + 3*r)*(1.0 + H)**(1.0/3.0) / (3.0*(2.0*m + r)**2)
+        H[:] = 2.0 * m / r
+        self.u[self.U_ALPHA][:] = 1.0 / np.sqrt(1.0 + H)
+        self.u[self.U_CHI][:] = 1.0 / (1.0 + H) ** (1.0 / 3.0)
+        self.u[self.U_GRR][:] = (1.0 + H) ** (2.0 / 3.0)
+        self.u[self.U_GTT][:] = r**2 / (1.0 + H) ** (1.0 / 3.0)
+        self.u[self.U_ARR][:] = (
+            -4.0
+            * m
+            * (1.0 + H) ** (1.0 / 6.0)
+            * (3.0 * m + 2.0 * r)
+            / (3.0 * r * r * (r + 2.0 * m))
+        )
+        self.u[self.U_K][:] = (
+            2 * m * (r + 3.0 * m) / (r * r * (2.0 * m + r) * np.sqrt(1.0 + H))
+        )
+        self.u[self.U_GT][:] = (
+            -2.0
+            * (8 * m + 3 * r)
+            * (1.0 + H) ** (1.0 / 3.0)
+            / (3.0 * (2.0 * m + r) ** 2)
+        )
         self.u[self.U_SHIFT][:] = H / (1 + H)
         self.u[self.U_GB][:] = 0.0
 
@@ -329,13 +370,32 @@ class BSSN(Equations):
 
         # Apply outer boundary conditions at r = rmax
         ng = g.nghost
-        dxu = [ d_chi, d_g_rr, d_g_tt, ad_A_rr, d_K, d_Gamma_r, d_alpha, d_beta_r, ad_B_r ]
+        dxu = [
+            d_chi,
+            d_g_rr,
+            d_g_tt,
+            ad_A_rr,
+            d_K,
+            d_Gamma_r,
+            d_alpha,
+            d_beta_r,
+            ad_B_r,
+        ]
         r = g.xi[0]
         for m in range(len(u)):
-            BSSN.bc_sommerfeld(dtu[m], u[m], dxu[m], r, self.u_falloff[m], self.u_inf[m], ng, self.extended_domain)
-            
+            BSSN.bc_sommerfeld(
+                dtu[m],
+                u[m],
+                dxu[m],
+                r,
+                self.u_falloff[m],
+                self.u_inf[m],
+                ng,
+                self.extended_domain,
+            )
+
         if DEBUG:
-            print("v = ",v)
+            print("v = ", v)
             print("dt_alpha = ", l2norm(alpha_rhs[10:]))
             print("dt_beta_r = ", l2norm(beta_r_rhs[10:]))
             print("dt_chi = ", l2norm(chi_rhs[10:]))
@@ -663,9 +723,9 @@ class BSSN(Equations):
         """
         Apply Sommerfeld boundary conditions at the outer boundary.
         """
-        dtu[-ng:] = -dxu[-ng:] - n_falloff * (u[-ng:] - u_inf)/r[-ng:]
+        dtu[-ng:] = -dxu[-ng:] - n_falloff * (u[-ng:] - u_inf) / r[-ng:]
         if extended_domain:
-            dtu[:ng] = dxu[:ng] - n_falloff * (u[:ng] - u_inf)/r[:ng]
+            dtu[:ng] = dxu[:ng] - n_falloff * (u[:ng] - u_inf) / r[:ng]
 
     @staticmethod
     @njit
@@ -779,4 +839,3 @@ def set_inner_regularity(u, ng, parity=1):
     Apply inner boundary condition at the origin.
     """
     u[:ng] = parity * u[2 * ng - 1 : ng - 1 : -1]
-

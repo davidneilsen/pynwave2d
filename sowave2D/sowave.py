@@ -2,8 +2,9 @@ import numpy as np
 from numba import njit
 import sys
 import os
+
 # Add the parent directory to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from nwave import Equations, Grid2D
 
@@ -15,7 +16,9 @@ class ScalarField(Equations):
         elif bctype == "REFLECT":
             apply_bc = "FUNCTION"
         else:
-            raise ValueError("Invalid boundary condition type. Use 'SOMMERFELD' or 'REFLECT'.")
+            raise ValueError(
+                "Invalid boundary condition type. Use 'SOMMERFELD' or 'REFLECT'."
+            )
 
         self.bound_cond = bctype
         super().__init__(NU, g, apply_bc)
@@ -67,10 +70,10 @@ def bc_reflect(phi, chi):
     phi[:, 0] = 0.0
     phi[:, -1] = 0.0
 
-    chi[0, :] = (4.0*chi[1,:] - chi[2,:]) / 3.0
-    chi[-1, :] = (4.0*chi[-2,:] - chi[-3,:]) / 3.0 
-    chi[:, 0] = (4.0*chi[:,1] - chi[:,2]) / 3.0
-    chi[:, -1] = (4.0*chi[:,-2] - chi[:,-3]) / 3.0
+    chi[0, :] = (4.0 * chi[1, :] - chi[2, :]) / 3.0
+    chi[-1, :] = (4.0 * chi[-2, :] - chi[-3, :]) / 3.0
+    chi[:, 0] = (4.0 * chi[:, 1] - chi[:, 2]) / 3.0
+    chi[:, -1] = (4.0 * chi[:, -2] - chi[:, -3]) / 3.0
 
 
 @njit
@@ -78,20 +81,27 @@ def bc_sommerfeld(dtf, f, dxf, dyf, falloff, ngz, x, y, Nx, Ny):
     for j in range(Ny):
         for i in range(ngz):
             # xmin boundary
-            inv_r = 1.0 / np.sqrt(x[i]**2 + y[j]**2)
-            dtf[i, j] = -(x[i] * dxf[i, j] + y[j] * dyf[i, j] + falloff * f[i, j]) * inv_r
+            inv_r = 1.0 / np.sqrt(x[i] ** 2 + y[j] ** 2)
+            dtf[i, j] = (
+                -(x[i] * dxf[i, j] + y[j] * dyf[i, j] + falloff * f[i, j]) * inv_r
+            )
         for i in range(Nx - ngz, Nx):
             # xmax boundary
-            inv_r = 1.0 / np.sqrt(x[i]**2 + y[j]**2)
-            dtf[i, j] = -(x[i] * dxf[i, j] + y[j] * dyf[i, j] + falloff * f[i, j]) * inv_r
+            inv_r = 1.0 / np.sqrt(x[i] ** 2 + y[j] ** 2)
+            dtf[i, j] = (
+                -(x[i] * dxf[i, j] + y[j] * dyf[i, j] + falloff * f[i, j]) * inv_r
+            )
 
     for i in range(Nx):
         for j in range(ngz):
             # ymin boundary
-            inv_r = 1.0 / np.sqrt(x[i]**2 + y[j]**2)
-            dtf[i, j] = -(x[i] * dxf[i, j] + y[j] * dyf[i, j] + falloff * f[i, j]) * inv_r
+            inv_r = 1.0 / np.sqrt(x[i] ** 2 + y[j] ** 2)
+            dtf[i, j] = (
+                -(x[i] * dxf[i, j] + y[j] * dyf[i, j] + falloff * f[i, j]) * inv_r
+            )
         for j in range(Ny - ngz, Ny):
             # ymax boundary
-            inv_r = 1.0 / np.sqrt(x[i]**2 + y[j]**2)
-            dtf[i, j] = -(x[i] * dxf[i, j] + y[j] * dyf[i, j] + falloff * f[i, j]) * inv_r
-
+            inv_r = 1.0 / np.sqrt(x[i] ** 2 + y[j] ** 2)
+            dtf[i, j] = (
+                -(x[i] * dxf[i, j] + y[j] * dyf[i, j] + falloff * f[i, j]) * inv_r
+            )

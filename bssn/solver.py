@@ -2,7 +2,8 @@ import numpy as np
 import sys
 import os
 import csv
-#from pdb import set_trace as bp
+
+# from pdb import set_trace as bp
 
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -10,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import bssneqs as bssn
 import tomllib
 from nwave import *
+
 
 def verify_params(params):
     if params["Nx"] < 10:
@@ -43,6 +45,7 @@ def verify_params(params):
     if params["eta"] < 1.0:
         raise ValueError("eta must be greater than or equal to 1.0")
 
+
 def write_curve(filename, time, x, eqs):
     constraint_names = ["Ham", "Mom"]
     with open(filename, "w") as f:
@@ -55,6 +58,7 @@ def write_curve(filename, time, x, eqs):
             f.write(f"# {eqs.c_names[m]}\n")
             for xi, di in zip(x, eqs.C[m]):
                 f.write(f"{xi:.8e} {di:.8e}\n")
+
 
 def write_curve2(filename, time, x, eqs):
     nghosts = 4
@@ -124,15 +128,15 @@ def main():
         g.set_D2(D2)
     else:
         raise NotImplementedError("D2 = { E4, E6, JP6 }")
-    
+
     if "Filter" in params:
         sigma = params.get("KOsigma", 0.1)
         apply_diss_boundaries = params.get("ApplyDissBounds", False)
         if params["Filter"] == "KO6":
-            bssn_filter = KreissOligerFilterO6_1D( dr, sigma, apply_diss_boundaries)
+            bssn_filter = KreissOligerFilterO6_1D(dr, sigma, apply_diss_boundaries)
             g.set_filter(bssn_filter)
         elif params["Filter"] == "KO8":
-            bssn_filter = KreissOligerFilterO8_1D( dr, sigma, apply_diss_boundaries=True)
+            bssn_filter = KreissOligerFilterO8_1D(dr, sigma, apply_diss_boundaries=True)
             g.set_filter(bssn_filter)
         else:
             raise NotImplementedError("Filter = { KO6, KO8 }")
@@ -165,10 +169,12 @@ def main():
 
     # Create a CSV file for constraint norms
     conname = f"{output_dir}/bssn_constraints.dat"
-    confile = open(conname, mode='w', newline='')
+    confile = open(conname, mode="w", newline="")
     writer = csv.writer(confile)
     writer.writerow(["time", "Ham", "Mom"])
-    writer.writerow([time, l2norm(eqs.C[0][nghost:-nghost]), l2norm(eqs.C[1][nghost:-nghost])])
+    writer.writerow(
+        [time, l2norm(eqs.C[0][nghost:-nghost]), l2norm(eqs.C[1][nghost:-nghost])]
+    )
 
     for i in range(1, Nt + 1):
         rk4.step(eqs, g, dt)
@@ -187,6 +193,7 @@ def main():
             write_curve(fname, time, g.xi[0], eqs)
 
     confile.close()
+
 
 if __name__ == "__main__":
     main()

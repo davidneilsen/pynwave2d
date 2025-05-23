@@ -1,6 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
-#from pdb import set_trace as bp
+
+# from pdb import set_trace as bp
 from . import finitederivs as fd
 from . import filters as fi
 
@@ -125,6 +126,7 @@ class Grid1D(Grid):
     def set_filter(self, filter: fi.Filter1D):
         self.Filter = filter
 
+
 class Grid2D(Grid):
     """
     Class to define a 2D grid for a PDE system.
@@ -173,6 +175,6 @@ class Grid2D(Grid):
 
     def set_D2(self, d2: fd.SecondDerivative2D):
         self.D2 = d2
-        
-    def set_filter(self, filter : fi.Filter2D):
-        self.Filter = filter 
+
+    def set_filter(self, filter: fi.Filter2D):
+        self.Filter = filter

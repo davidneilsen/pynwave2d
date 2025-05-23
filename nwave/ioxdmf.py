@@ -44,12 +44,14 @@ def write_xdmf(output_dir, Nt, Nx, Ny, unames, output_interval, dt):
           <DataItem Name="X" Dimensions="{Nx}" NumberType="Float" Precision="8" Format="HDF">wave_{n:05d}.h5:/X</DataItem>
           <DataItem Name="Y" Dimensions="{Ny}" NumberType="Float" Precision="8" Format="HDF">wave_{n:05d}.h5:/Y</DataItem>
           <DataItem Name="Z" Dimensions="{Nz}" NumberType="Float" Precision="8" Format="HDF">wave_{n:05d}.h5:/Z</DataItem>
-        </Geometry>\n""")
+        </Geometry>\n"""
+            )
             for m in range(len(unames)):
                 f.write(
                     f"""        <Attribute Name="{unames[m]}" AttributeType="Scalar" Center="Node">
           <DataItem Dimensions="{Nz} {Ny} {Nx}" NumberType="Float" Precision="8" Format="HDF">wave_{n:05d}.h5:/phi</DataItem>
-        </Attribute>\n""")
+        </Attribute>\n"""
+                )
 
             f.write("      </Grid>\n")
 

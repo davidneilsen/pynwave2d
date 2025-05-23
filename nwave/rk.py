@@ -41,7 +41,7 @@ class RK4:
         e.rhs(k1, u0, g)
         if self.rhs_filter:
             for i in range(nu):
-                #print(f"calling filter {i}. sigma = {g.Filter.get_sigma()}")
+                # print(f"calling filter {i}. sigma = {g.Filter.get_sigma()}")
                 g.Filter.filter(wrk, u0[i])
                 k1[i] += wrk
         for i in range(nu):
