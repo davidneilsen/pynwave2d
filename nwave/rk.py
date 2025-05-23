@@ -1,5 +1,6 @@
 from .eqs import Equations
 from .grid import Grid
+from .filters import FilterApply
 import numpy as np
 
 
@@ -10,6 +11,10 @@ class RK4:
         self.k3 = []
         self.k4 = []
         self.us = []
+        self.rhs_filter = False
+        if g.Filter is not None:
+            if g.Filter.get_apply_filter() == FilterApply.RHS:
+                self.rhs_filter = True
 
         for i in range(e.Nu):
             self.k1.append(np.zeros(tuple(e.shp)))
@@ -30,8 +35,15 @@ class RK4:
         assert len(k4) == e.Nu, "RK: wrong number of work arrays"
         # print(f"k3 shape = {k3[0].shape}")
 
+        wrk = np.zeros_like(k1[0])
+
         # Stage 1
         e.rhs(k1, u0, g)
+        if self.rhs_filter:
+            for i in range(nu):
+                #print(f"calling filter {i}. sigma = {g.Filter.get_sigma()}")
+                g.Filter.filter(wrk, u0[i])
+                k1[i] += wrk
         for i in range(nu):
             us[i][:] = u0[i][:] + 0.5 * dt * k1[i][:]
         if e.apply_bc == "FUNCTION":
@@ -39,6 +51,10 @@ class RK4:
 
         # Stage 2
         e.rhs(k2, us, g)
+        if self.rhs_filter:
+            for i in range(nu):
+                g.Filter.filter(wrk, us[i])
+                k2[i] += wrk
         for i in range(nu):
             us[i][:] = u0[i][:] + 0.5 * dt * k2[i][:]
         if e.apply_bc == "FUNCTION":
@@ -46,13 +62,21 @@ class RK4:
 
         # Stage 3
         e.rhs(k3, us, g)
+        if self.rhs_filter:
+            for i in range(nu):
+                g.Filter.filter(wrk, us[i])
+                k3[i] += wrk
         for i in range(nu):
             us[i][:] = u0[i][:] + dt * k3[i][:]
         if e.apply_bc == "FUNCTION":
             e.apply_bcs(us, g)
 
         # Stage 4
-        e.rhs(self.k3, us, g)
+        e.rhs(self.k4, us, g)
+        if self.rhs_filter:
+            for i in range(nu):
+                g.Filter.filter(wrk, us[i])
+                k4[i] += wrk
         for i in range(nu):
             u0[i][:] += dt / 6 * (k1[i][:] + 2 * k2[i][:] + 2 * k3[i][:] + k4[i][:])
         if e.apply_bc == "FUNCTION":

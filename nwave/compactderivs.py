@@ -551,6 +551,7 @@ class CompactDerivative:
 
         return ab, B
 
+    @staticmethod
     def write_matrix(filename, A):
         with open(filename, "w") as f:
             for row in A:
@@ -559,9 +560,13 @@ class CompactDerivative:
 
     def grad(self, f):
         if self.method == "D_LU" or self.method == "D_INV":
+            if self.D is None:
+                raise ValueError("Matrix D has not been initialized for method '{}'.".format(self.method))
             return np.matmul(self.D, f) * self.denom
         elif self.method == "LUSOLVE":
             rhs = np.matmul(self.B, f)
+            if self.lu_factorization is None:
+                raise ValueError("LU factorization has not been initialized for method 'LUSOLVE'.")
             return (blu.lu_solve_banded(self.lu_factorization, rhs, overwrite_b=True, check_finite=True) * self.denom)
         else:
             rhs = np.matmul(self.B, f)

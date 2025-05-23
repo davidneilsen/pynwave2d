@@ -2,6 +2,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 #from pdb import set_trace as bp
 from . import finitederivs as fd
+from . import filters as fi
 
 
 class Grid(ABC):
@@ -15,6 +16,7 @@ class Grid(ABC):
         self.dx = dx
         self.D1 = None
         self.D2 = None
+        self.Filter = None
         self.nghost = nghost
 
     @abstractmethod
@@ -28,6 +30,13 @@ class Grid(ABC):
     def set_D2(self, d2):
         """
         Set the second derivative operator.
+        """
+        pass
+
+    @abstractmethod
+    def set_filter(self, filter):
+        """
+        Set the filter operator.
         """
         pass
 
@@ -113,6 +122,8 @@ class Grid1D(Grid):
     def set_D2(self, d2: fd.SecondDerivative1D):
         self.D2 = d2
 
+    def set_filter(self, filter: fi.Filter1D):
+        self.Filter = filter
 
 class Grid2D(Grid):
     """
@@ -162,3 +173,6 @@ class Grid2D(Grid):
 
     def set_D2(self, d2: fd.SecondDerivative2D):
         self.D2 = d2
+        
+    def set_filter(self, filter : fi.Filter2D):
+        self.Filter = filter 

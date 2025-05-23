@@ -44,7 +44,7 @@ class BSSN(Equations):
     The equations are from the paper "BSSN in Spherical Symmetry" by J. David Brown (2008).
     """
 
-    def __init__(self, g, M, eta, apply_bc=None, gbssn_system=GBSSNSystem(1, 1, 1)):
+    def __init__(self, g, M, eta, extended_domain, apply_bc=None, gbssn_system=GBSSNSystem(1, 1, 1)):
         """
         Initialize the BSSN equations.
         Parameters
@@ -55,8 +55,8 @@ class BSSN(Equations):
             Mass of the black hole.
         eta : float
             Damping parameter.
-        apply_bc : function
-            Function to apply boundary conditions.
+        apply_bc : "FUNCTION" or None
+            If "FUNCTION", apply the boundary conditions using the function in each post-RK step.
         gbssn_system : GBSSNSystem
             System of equations to use.
         """
@@ -67,6 +67,7 @@ class BSSN(Equations):
         self.gbssn_system = gbssn_system
         self.eta = eta
         self.M = M
+        self.extended_domain = extended_domain
 
         self.U_CHI = 0
         self.U_GRR = 1
@@ -98,6 +99,8 @@ class BSSN(Equations):
         if params["initial_data"] == "Puncture":
             self.initial_data_puncture(g, params)
         elif params["initial_data"] == "EddingtonFinkelstein":
+            if self.gbssn_system.eqs == 0:
+                raise ValueError("Eddington-Finkelstein initial data is not valid for Eulerian system.")
             self.initial_data_ef(g)
         else:
             raise ValueError("Invalid initial data. Must be 'puncture' or 'EddingtonFinkelstein'.")
@@ -126,6 +129,8 @@ class BSSN(Equations):
         """
         Initial data for the BSSN equations.  This is a simple
         Schwarzschild solution in Eddington-Finkelstein coordinates.
+        This can be used to verify the BSSN equations for LAGRANGIAN
+        systems.
         """
         r = np.abs(g.xi[0])
         H = np.zeros_like(r)
@@ -183,15 +188,26 @@ class BSSN(Equations):
         USE_ADVECTION = True
         if USE_ADVECTION and g.D1.HAVE_ADVECTIVE_DERIV:
             # Advection terms
-            ad_B_r = g.D1.advec_grad(B_r, beta_r)
-            ad_alpha = g.D1.advec_grad(alpha, beta_r)
-            ad_beta_r = g.D1.advec_grad(beta_r, beta_r)
-            ad_g_rr = g.D1.advec_grad(g_rr, beta_r)
-            ad_g_tt = g.D1.advec_grad(g_tt, beta_r)
-            ad_A_rr = g.D1.advec_grad(A_rr, beta_r)
-            ad_K = g.D1.advec_grad(K, beta_r)
-            ad_Gamma_r = g.D1.advec_grad(Gamma_r, beta_r)
-            ad_chi = g.D1.advec_grad(chi, beta_r)
+            dr = g.dx[0]
+            ad_alpha = np.empty_like(alpha)
+            ad_beta_r = np.empty_like(beta_r)
+            ad_B_r = np.empty_like(B_r)
+            ad_chi = np.empty_like(chi)
+            ad_g_rr = np.empty_like(g_rr)
+            ad_g_tt = np.empty_like(g_tt)
+            ad_K = np.empty_like(K)
+            ad_A_rr = np.empty_like(A_rr)
+            ad_Gamma_r = np.empty_like(Gamma_r)
+
+            g.D1.advec_grad(ad_B_r, B_r, beta_r, dr)
+            g.D1.advec_grad(ad_alpha, alpha, beta_r, dr)
+            g.D1.advec_grad(ad_beta_r, beta_r, beta_r, dr)
+            g.D1.advec_grad(ad_g_rr, g_rr, beta_r, dr)
+            g.D1.advec_grad(ad_g_tt, g_tt, beta_r, dr)
+            g.D1.advec_grad(ad_A_rr, A_rr, beta_r, dr)
+            g.D1.advec_grad(ad_K, K, beta_r, dr)
+            g.D1.advec_grad(ad_Gamma_r, Gamma_r, beta_r, dr)
+            g.D1.advec_grad(ad_chi, chi, beta_r, dr)
         else:
             ad_alpha = d_alpha
             ad_beta_r = d_beta_r
@@ -305,16 +321,28 @@ class BSSN(Equations):
             lambda_shift,
         )
 
-        # Apply outer boundary conditions
-        alpha_rhs[-2:] = 0.0
-        beta_r_rhs[-2:] = 0.0
-        B_r_rhs[-2:] = 0.0
-        chi_rhs[-2:] = 0.0
-        g_rr_rhs[-2:] = 0.0
-        g_tt_rhs[-2:] = 0.0
-        A_rr_rhs[-2:] = 0.0
-        K_rhs[-2:] = 0.0
-        Gamma_r_rhs[-2:] = 0.0
+        # Apply outer boundary conditions at r = rmax
+        ng = g.nghost
+        alpha_rhs[-ng:] = 0.0
+        beta_r_rhs[-ng:] = 0.0
+        B_r_rhs[-ng:] = 0.0
+        chi_rhs[-ng:] = 0.0
+        g_rr_rhs[-ng:] = 0.0
+        g_tt_rhs[-ng:] = 0.0
+        A_rr_rhs[-ng:] = 0.0
+        K_rhs[-ng:] = 0.0
+        Gamma_r_rhs[-ng:] = 0.0
+        if self.extended_domain:
+            # Apply boundary conditions at r = -rmax
+            alpha_rhs[:ng] = 0.0
+            beta_r_rhs[:ng] = 0.0
+            B_r_rhs[:ng] = 0.0
+            chi_rhs[:ng] = 0.0
+            g_rr_rhs[:ng] = 0.0
+            g_tt_rhs[:ng] = 0.0
+            A_rr_rhs[:ng] = 0.0
+            K_rhs[:ng] = 0.0
+            Gamma_r_rhs[:ng] = 0.0
 
         if DEBUG:
             print("v = ",v)
@@ -581,15 +609,16 @@ class BSSN(Equations):
         # print("Applying regularity conditions at the origin")
         ng = g.nghost
 
-        set_inner_regularity(self.u[self.U_CHI], ng, 1)
-        set_inner_regularity(self.u[self.U_GRR], ng, 1)
-        set_inner_regularity(self.u[self.U_GTT], ng, 1)
-        set_inner_regularity(self.u[self.U_ARR], ng, 1)
-        set_inner_regularity(self.u[self.U_K], ng, 1)
-        set_inner_regularity(self.u[self.U_GT], ng, -1)
-        set_inner_regularity(self.u[self.U_ALPHA], ng, 1)
-        set_inner_regularity(self.u[self.U_SHIFT], ng, -1)
-        set_inner_regularity(self.u[self.U_GB], ng, -1)
+        if self.extended_domain == False:
+            set_inner_regularity(self.u[self.U_CHI], ng, 1)
+            set_inner_regularity(self.u[self.U_GRR], ng, 1)
+            set_inner_regularity(self.u[self.U_GTT], ng, 1)
+            set_inner_regularity(self.u[self.U_ARR], ng, 1)
+            set_inner_regularity(self.u[self.U_K], ng, 1)
+            set_inner_regularity(self.u[self.U_GT], ng, -1)
+            set_inner_regularity(self.u[self.U_ALPHA], ng, 1)
+            set_inner_regularity(self.u[self.U_SHIFT], ng, -1)
+            set_inner_regularity(self.u[self.U_GB], ng, -1)
 
     def cal_constraints(self, u, g: Grid):
         """

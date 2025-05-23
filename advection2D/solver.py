@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import advection
 import json
-from nwave import Grid2D, RK4, Equations, CompactFirst2D, CompactSecond2D, ExplicitFirst44_2D, ExplicitSecond44_2D
+from nwave import *
 import nwave.ioxdmf as iox
 
 def main():
@@ -25,6 +25,16 @@ def main():
     D2 = CompactSecond2D(x, y, "D2_JTP6")
     g.set_D1(D1)
     g.set_D2(D2)
+
+    """
+    Need to write 2D filters
+
+    F1 = KreissOligerFilterO6_2D( dx, 0.1, apply_diss_boundaries=False)
+    g.set_filter(F1)
+    print(f"Filter type: {g.Filter.get_filter_type()}")
+    print(f"Filter apply: {g.Filter.get_apply_filter()}")
+    print(f"Filter sigma: {F1.get_sigma()}")
+    """
 
     eqs = advection.Advection(1, g)
     eqs.initialize(g, params)
