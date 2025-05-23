@@ -571,5 +571,11 @@ class CompactDerivative:
         else:
             rhs = np.matmul(self.B, f)
             return (solve_banded(self.bands, self.ab, rhs) * self.denom)
+
+    def get_Abanded(self):
+        return self.ab
+
+    def get_B(self):
+        return self.B
         
 
