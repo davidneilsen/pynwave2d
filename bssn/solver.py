@@ -36,6 +36,8 @@ def verify_params(params):
         raise ValueError("D1 must be one of {E4, E6, JP6, KP4}")
     if params["D2"] not in ["E4", "E6", "JP6"]:
         raise ValueError("D2 must be one of {E4, E6, JP6}")
+    if params["Filter"] not in ["KO6", "KO8"]:
+        raise ValueError("D2 must be one of {KO6, KO8}")
     if params["Mass"] <= 0.0:
         raise ValueError("Mass must be positive")
     if params["eta"] < 1.0:
@@ -123,12 +125,21 @@ def main():
     else:
         raise NotImplementedError("D2 = { E4, E6, JP6 }")
     
-    sigma = params["KOsigma"]
-    bssn_filter = KreissOligerFilterO8_1D( dr, sigma, apply_diss_boundaries=True)
-    g.set_filter(bssn_filter)
-    print(f"Filter type: {g.Filter.get_filter_type()}")
-    print(f"Filter apply: {g.Filter.get_apply_filter()}")
-    print(f"Filter sigma: {bssn_filter.get_sigma()}")
+    if "Filter" in params:
+        sigma = params.get("KOsigma", 0.1)
+        apply_diss_boundaries = params.get("ApplyDissBounds", False)
+        if params["Filter"] == "KO6":
+            bssn_filter = KreissOligerFilterO6_1D( dr, sigma, apply_diss_boundaries)
+            g.set_filter(bssn_filter)
+        elif params["Filter"] == "KO8":
+            bssn_filter = KreissOligerFilterO8_1D( dr, sigma, apply_diss_boundaries=True)
+            g.set_filter(bssn_filter)
+        else:
+            raise NotImplementedError("Filter = { KO6, KO8 }")
+
+        print(f"Filter type: {g.Filter.get_filter_type()}")
+        print(f"Filter apply: {g.Filter.get_apply_filter()}")
+        print(f"Filter sigma: {bssn_filter.get_sigma()}")
 
     # GBSSN system: (sys, lapse advection, shift advection)
     #    sys = 0 (Eulerian), 1 (Lagrangian)
@@ -150,7 +161,7 @@ def main():
     eqs.cal_constraints(eqs.u, g)
     step = 0
     fname = f"{output_dir}/bssn_{step:04d}.curve"
-    write_curve2(fname, 0.0, g.xi[0], eqs)
+    write_curve(fname, 0.0, g.xi[0], eqs)
 
     # Create a CSV file for constraint norms
     conname = f"{output_dir}/bssn_constraints.dat"
@@ -173,7 +184,7 @@ def main():
             writer.writerow([time, hamnorm, momnorm])
         if i % output_interval == 0:
             fname = f"{output_dir}/bssn_{i:04d}.curve"
-            write_curve2(fname, time, g.xi[0], eqs)
+            write_curve(fname, time, g.xi[0], eqs)
 
     confile.close()
 

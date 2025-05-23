@@ -90,6 +90,12 @@ class BSSN(Equations):
         self.GAMCON = 2
         self.u_names = ["chi", "grr", "gtt", "Arr", "K", "Gt", "alpha", "beta", "gB"]
         self.c_names = ["ham", "mom", "gamcom"]
+        self.u_falloff = [1, 1, 1,  # chi, grr, gtt
+                          2, 2, 2,  # Arr, K, Gt
+                          0, 1, 1]  # alpha, beta, gB
+        self.u_inf = [1, 1, 1,  #chi, grr, gtt
+                      0, 0, 0,  # Arr, K, Gt
+                      1, 0, 0]  # alpha, beta, gB
 
     def initialize(self, g: Grid, params):
         """
@@ -323,27 +329,11 @@ class BSSN(Equations):
 
         # Apply outer boundary conditions at r = rmax
         ng = g.nghost
-        alpha_rhs[-ng:] = 0.0
-        beta_r_rhs[-ng:] = 0.0
-        B_r_rhs[-ng:] = 0.0
-        chi_rhs[-ng:] = 0.0
-        g_rr_rhs[-ng:] = 0.0
-        g_tt_rhs[-ng:] = 0.0
-        A_rr_rhs[-ng:] = 0.0
-        K_rhs[-ng:] = 0.0
-        Gamma_r_rhs[-ng:] = 0.0
-        if self.extended_domain:
-            # Apply boundary conditions at r = -rmax
-            alpha_rhs[:ng] = 0.0
-            beta_r_rhs[:ng] = 0.0
-            B_r_rhs[:ng] = 0.0
-            chi_rhs[:ng] = 0.0
-            g_rr_rhs[:ng] = 0.0
-            g_tt_rhs[:ng] = 0.0
-            A_rr_rhs[:ng] = 0.0
-            K_rhs[:ng] = 0.0
-            Gamma_r_rhs[:ng] = 0.0
-
+        dxu = [ d_chi, d_g_rr, d_g_tt, ad_A_rr, d_K, d_Gamma_r, d_alpha, d_beta_r, ad_B_r ]
+        r = g.xi[0]
+        for m in range(len(u)):
+            BSSN.bc_sommerfeld(dtu[m], u[m], dxu[m], r, self.u_falloff[m], self.u_inf[m], ng, self.extended_domain)
+            
         if DEBUG:
             print("v = ",v)
             print("dt_alpha = ", l2norm(alpha_rhs[10:]))
@@ -667,6 +657,15 @@ class BSSN(Equations):
             d2_chi,
             d2_g_tt,
         )
+
+    @staticmethod
+    def bc_sommerfeld(dtu, u, dxu, r, n_falloff, u_inf, ng, extended_domain):
+        """
+        Apply Sommerfeld boundary conditions at the outer boundary.
+        """
+        dtu[-ng:] = -dxu[-ng:] - n_falloff * (u[-ng:] - u_inf)/r[-ng:]
+        if extended_domain:
+            dtu[:ng] = dxu[:ng] - n_falloff * (u[:ng] - u_inf)/r[:ng]
 
     @staticmethod
     @njit
