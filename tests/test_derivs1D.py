@@ -6,7 +6,7 @@ import os
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from nwave import Grid, Grid1D, CompactFirst1D, CompactSecond1D, ExplicitFirst44_1D, ExplicitSecond44_1D
+from nwave import *
 
 
 def func(x):
@@ -53,6 +53,13 @@ DXXF = D2.grad2(f)
 CXF = C1.grad(f)
 CXXF = C2.grad2(f)
 
+ab = C1.dxf.get_Abanded()
+q = C1.dxf.get_B()
+sys = LinearSolveLU(ab)
+rhs = np.matmul(q, f)
+cxf = sys.solve(rhs) / dx
+e3 = np.abs(cxf - CXF)
+
 err_x = DXF - dxf
 err_xx = DXXF - dxxf
 
@@ -81,6 +88,13 @@ ax.semilogy(x,e1d,marker=".",label="FD")
 ax.semilogy(x,c1d,marker=".",label="CFD")
 plt.legend()
 plt.title("Error dxf 1D (x)")
+
+fig, ax = plt.subplots()
+ax.semilogy(x,e3,marker=".",label="Solvers")
+plt.legend()
+plt.title("Error in LU solved system")
+
+
 
 
 

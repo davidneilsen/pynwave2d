@@ -107,10 +107,10 @@ def main():
         D1 = ExplicitFirst642_1D(dr)
         g.set_D1(D1)
     elif params["D1"] == "JP6":
-        D1 = CompactFirst1D(r, "D1_JTP6", method="LUSOLVE")
+        D1 = CompactFirst1D(r, DerivType.D1_JP6, CFDSolve.LUSOLVE)
         g.set_D1(D1)
     elif params["D1"] == "KP4":
-        D1 = CompactFirst1D(r, "D1_KP4", method="LUSOLVE")
+        D1 = CompactFirst1D(r, DerivType.D1_KP4, CFDSolve.LUSOLVE)
         g.set_D1(D1)
     else:
         raise NotImplementedError("D1 = { E4, E6, JP6, KP4 }")
@@ -122,7 +122,7 @@ def main():
         D2 = ExplicitSecond642_1D(dr)
         g.set_D2(D2)
     elif params["D2"] == "JP6":
-        D2 = CompactSecond1D(r, "D2_JTP6", method="LUSOLVE")
+        D2 = CompactSecond1D(r, DerivType.D2_JP6, CFDSolve.LUSOLVE)
         g.set_D2(D2)
     else:
         raise NotImplementedError("D2 = { E4, E6, JP6 }")
@@ -146,7 +146,9 @@ def main():
     # GBSSN system: (sys, lapse advection, shift advection)
     #    sys = 0 (Eulerian), 1 (Lagrangian)
     sys = bssn.GBSSNSystem(1, 1, 1)
-    eqs = bssn.BSSN(g, params["Mass"], params["eta"], extended_domain, "FUNCTION", sys)
+    eqs = bssn.BSSN(
+        g, params["Mass"], params["eta"], extended_domain, BCType.FUNCTION, sys, have_d2=True
+    )
     eqs.initialize(g, params)
 
     output_dir = params["output_dir"]

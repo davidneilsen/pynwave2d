@@ -82,7 +82,7 @@ def main():
     elif args.D1 == "E6" or args.D1 == "AE6":
         D1 = ExplicitFirst642_1D(dx)
     elif args.D1 == "JTP6":
-        D1 = CompactFirst1D(x, "D1_JTP6")
+        D1 = CompactFirst1D(x, DerivType.D1_JTP6, CFDSolve.LUSOLVE)
     else:
         raise NotImplementedError
 
@@ -91,7 +91,7 @@ def main():
     elif args.D2 == "E6":
         D2 = ExplicitSecond642_1D(dx)
     elif args.D2 == "JTP6":
-        D2 = CompactSecond1D(x, "D2_JTP6")
+        D2 = CompactSecond1D(x, DerivType.D2_JTP6, CFDSolve.LUSOLVE)
     else:
         raise NotImplementedError
 

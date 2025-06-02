@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit
+from .types import DerivType
 from .finitederivs import (
     FirstDerivative1D,
     SecondDerivative1D,
@@ -10,7 +11,11 @@ from .finitederivs import (
 
 class ExplicitFirst44_1D(FirstDerivative1D):
     def __init__(self, dx):
+        self.type = DerivType.D1_E44
         super().__init__(dx, aderiv=True)
+
+    def get_type(self):
+        return self.type
 
     def grad(self, u):
         du = np.zeros_like(u)
@@ -82,7 +87,11 @@ class ExplicitFirst44_1D(FirstDerivative1D):
 
 class ExplicitSecond44_1D(SecondDerivative1D):
     def __init__(self, dx):
+        self.type = DerivType.D2_E44
         super().__init__(dx)
+
+    def get_type(self):
+        return self.type
 
     def grad2(self, u):
         idx_sqrd = 1.0 / self.dx**2
@@ -116,7 +125,11 @@ class ExplicitSecond44_1D(SecondDerivative1D):
 
 class ExplicitFirst642_1D(FirstDerivative1D):
     def __init__(self, dx):
+        self.type = DerivType.D1_E642
         super().__init__(dx, aderiv=True)
+
+    def get_type(self):
+        return self.type
 
     def grad(self, u):
         du = np.zeros_like(u)
@@ -236,7 +249,11 @@ class ExplicitFirst642_1D(FirstDerivative1D):
 
 class ExplicitSecond642_1D(SecondDerivative1D):
     def __init__(self, dx):
+        self.type = DerivType.D1_E642
         super().__init__(dx)
+
+    def get_type(self):
+        return self.type
 
     def grad2(self, u):
         dxxu = np.zeros_like(u)

@@ -2,6 +2,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from scipy.linalg import solve_banded, solve
 from .compactderivs import CompactDerivative
+from .types import *
 
 # Finite difference base and subclasses
 
@@ -58,7 +59,7 @@ class SecondDerivative2D(ABC):
 
 
 class CompactFirst1D(FirstDerivative1D):
-    def __init__(self, x, type, method="SCIPY"):
+    def __init__(self, x, type: DerivType, method: CFDSolve):
         self.Nx = len(x)
         self.x = x
         dx = x[1] - x[0]
@@ -68,13 +69,13 @@ class CompactFirst1D(FirstDerivative1D):
         self.dxf = CompactDerivative(x, type, method)
         super().__init__(dx, aderiv=False)
 
-    def grad(self, u):
+    def grad(self, u) -> np.ndarray:
         # Apply compact scheme row-wise (derivative in x)
         return self.dxf.grad(u)
 
 
 class CompactSecond1D(SecondDerivative1D):
-    def __init__(self, x, type, method="SCIPY"):
+    def __init__(self, x, type: DerivType, method: CFDSolve):
         self.Nx = len(x)
         self.x = x
         dx = x[1] - x[0]
@@ -90,7 +91,7 @@ class CompactSecond1D(SecondDerivative1D):
 
 
 class CompactFirst2D(FirstDerivative2D):
-    def __init__(self, x, y, type, method="SCIPY"):
+    def __init__(self, x, y, type: DerivType, method: CFDSolve):
         self.Nx = len(x)
         self.Ny = len(y)
         self.x = x
@@ -105,7 +106,7 @@ class CompactFirst2D(FirstDerivative2D):
         self.dyf = CompactDerivative(y, type, method)
         super().__init__(dx, dy)
 
-    def grad_x(self, u):
+    def grad_x(self, u) -> np.ndarray:
         # Apply compact scheme row-wise (derivative in x)
         return self.dxf.grad(u)
 
@@ -116,7 +117,7 @@ class CompactFirst2D(FirstDerivative2D):
 
 
 class CompactSecond2D(SecondDerivative2D):
-    def __init__(self, x, y, type, method="SCIPY"):
+    def __init__(self, x, y, type: DerivType, method: CFDSolve):
         self.Nx = len(x)
         self.Ny = len(y)
         self.x = x

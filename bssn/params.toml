@@ -1,15 +1,14 @@
 Nt = 10000
-Nx = 10001
-Xmin = -100.0
+Nx = 10000
 Xmax = 100.0
 
 NGhost = 3
 cfl = 0.1
 eta = 2.0
-D1 = "KP4"
-D2 = "JP6"
+D1 = "E6"
+D2 = "E6"
 
-Filter = "KO8"
+Filter = "KO6"
 KOsigma = 0.5
 ApplyDissBounds = true
 

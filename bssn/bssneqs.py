@@ -5,7 +5,7 @@ from numba import njit
 
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from nwave import Equations, Grid, l2norm
+from nwave import Equations, Grid, l2norm, ExplicitFirst642_1D, ExplicitSecond642_1D
 
 DEBUG = False
 
@@ -52,6 +52,7 @@ class BSSN(Equations):
         extended_domain,
         apply_bc=None,
         gbssn_system=GBSSNSystem(1, 1, 1),
+        have_d2=True,
     ):
         """
         Initialize the BSSN equations.
@@ -76,6 +77,7 @@ class BSSN(Equations):
         self.eta = eta
         self.M = M
         self.extended_domain = extended_domain
+        self.have_d2 = have_d2
 
         self.U_CHI = 0
         self.U_GRR = 1
@@ -101,11 +103,11 @@ class BSSN(Equations):
         self.u_falloff = [
             1,
             1,
-            1,  # chi, grr, gtt
+            -2,  # chi, grr, gtt
             2,
             2,
-            2,  # Arr, K, Gt
-            0,
+            1,  # Arr, K, Gt
+            1,
             1,
             1,
         ]  # alpha, beta, gB
@@ -266,11 +268,20 @@ class BSSN(Equations):
             ad_A_rr = g.D1.grad(A_rr)
             ad_Gamma_r = d_Gamma_r
 
-        d2_chi = g.D2.grad2(chi)
-        d2_g_rr = g.D2.grad2(g_rr)
-        d2_g_tt = g.D2.grad2(g_tt)
-        d2_alpha = g.D2.grad2(alpha)
-        d2_beta_r = g.D2.grad2(beta_r)
+        if self.have_d2:
+            # Use native second derivatives
+            d2_chi = g.D2.grad2(chi)
+            d2_g_rr = g.D2.grad2(g_rr)
+            d2_g_tt = g.D2.grad2(g_tt)
+            d2_alpha = g.D2.grad2(alpha)
+            d2_beta_r = g.D2.grad2(beta_r)
+        else:
+            # Use first derivatives to approximate second derivatives
+            d2_chi = g.D1.grad(d_chi)
+            d2_g_rr = g.D1.grad(d_g_rr)
+            d2_g_tt = g.D1.grad(d_g_tt)
+            d2_alpha = g.D1.grad(d_alpha)
+            d2_beta_r = g.D1.grad(d_beta_r)
 
         BSSN.rhs_chi(
             chi_rhs,
@@ -699,6 +710,26 @@ class BSSN(Equations):
         d2_chi = g.D2.grad2(chi)
         d2_g_tt = g.D2.grad2(g_tt)
 
+        DEBUG_DERIVS = False
+        if DEBUG_DERIVS:
+            r = g.xi[0]
+            dr = r[1] - r[0]
+            ED1 = ExplicitFirst642_1D(dr)
+            ED2 = ExplicitSecond642_1D(dr)
+            ed_chi = ED1.grad(chi)
+            ed_g_rr = ED1.grad(g_rr)
+            ed_g_tt = ED1.grad(g_tt)
+            ed_A_rr = ED1.grad(A_rr)
+            ed_K = ED1.grad(K)
+            ed2_chi = ED2.grad2(chi)
+            ed2_g_tt = ED2.grad2(g_tt)
+            print(f"...D1(chi):  {l2norm(d_chi - ed_chi):.2e}") 
+            print(f"...D1(g_rr): {l2norm(d_g_rr - ed_g_rr):.2e}")
+            print(f"...D1(g_tt): {l2norm(d_g_tt - ed_g_tt):.2e}")
+            print(f"...D1(A_rr): {l2norm(d_A_rr - ed_A_rr):.2e}")
+            print(f"...D2(chi): {l2norm(d2_chi - ed2_chi):.2e}")
+            print(f"...D2(g_tt): {l2norm(d2_g_tt - ed2_g_tt):.2e}")
+
         BSSN.get_constraints(
             Ham,
             Mom,
@@ -723,6 +754,9 @@ class BSSN(Equations):
         """
         Apply Sommerfeld boundary conditions at the outer boundary.
         """
+        if n_falloff < 0:
+            u_inf = r[-1]**(abs(n_falloff))
+
         dtu[-ng:] = -dxu[-ng:] - n_falloff * (u[-ng:] - u_inf) / r[-ng:]
         if extended_domain:
             dtu[:ng] = dxu[:ng] - n_falloff * (u[:ng] - u_inf) / r[:ng]

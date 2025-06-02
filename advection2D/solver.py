@@ -23,8 +23,8 @@ def main():
     dy = g.dx[1]
     #    D1 = ExplicitFirst44_2D(dx, dy)
     #    D2 = ExplicitSecond44_2D(dx, dy)
-    D1 = CompactFirst2D(x, y, "D1_JTP6")
-    D2 = CompactSecond2D(x, y, "D2_JTP6")
+    D1 = CompactFirst2D(x, y, DerivType.D1_JP6, CFDSolve.LUSOLVE)
+    D2 = CompactSecond2D(x, y, DerivType.D2_JP6, CFDSolve.LUSOLVE)
     g.set_D1(D1)
     g.set_D2(D2)
 

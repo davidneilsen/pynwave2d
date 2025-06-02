@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from .grid import Grid
+from .types import *
 
 
 class Equations(ABC):
@@ -8,7 +9,7 @@ class Equations(ABC):
     Abstract base class for a system of PDEs.
     """
 
-    def __init__(self, NU, g: Grid, apply_bc=None):
+    def __init__(self, NU, g: Grid, apply_bc: BCType):
         """
         Initialize the PDE system.
 
@@ -18,7 +19,7 @@ class Equations(ABC):
         grid : Grid
             The spatial grid
 
-        apply_bc : "FUNCTION" or "RHS" or None
+        apply_bc : Enum type
             Specifies how boundary conditions are applied, either in the
             RHS routine, or applied to the function after each stage of
             the time integrator.
@@ -27,13 +28,7 @@ class Equations(ABC):
         self.Nu = NU
         self.shp = g.shp
         self.u = []
-
-        if apply_bc == "FUNCTION" or apply_bc == "function":
-            self.apply_bc = "FUNCTION"
-        elif apply_bc == "RHS" or apply_bc == "rhs":
-            self.apply_bc = "RHS"
-        else:
-            self.apply_bc = None
+        self.apply_bc = apply_bc
 
         for i in range(NU):
             d = np.zeros(tuple(self.shp))

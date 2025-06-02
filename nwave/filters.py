@@ -1,27 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from enum import Enum
-
-
-class FilterType(Enum):
-    """
-    Enum for filter types
-    """
-
-    NONE = 1
-    KREISS_OLIGER_O6 = 2
-    KREISS_OLIGER_O8 = 3
-
-
-class FilterApply(Enum):
-    """
-    Enum for filter application
-    """
-
-    NONE = 1
-    RHS = 2
-    APPLY_VARS = 3
-    APPLY_DERIVS = 4
+from . types import *
 
 
 class Filter1D(ABC):
@@ -35,7 +15,7 @@ class Filter1D(ABC):
         self.filter_type = filter_type
 
     @abstractmethod
-    def filter(self, du, u):
+    def filter(self, u) -> np.ndarray:
         pass
 
     def get_filter_type(self):
@@ -56,7 +36,7 @@ class Filter2D(ABC):
         self.filter_type = filter_type
 
     @abstractmethod
-    def filter(self, u):
+    def filter(self, u) -> np.ndarray:
         pass
 
     def get_filter_type(self):
@@ -81,7 +61,9 @@ class KreissOligerFilterO6_1D(Filter1D):
     def get_sigma(self):
         return self.sigma
 
-    def filter(self, du, u):
+    def filter(self, u):
+        du = np.zeros_like(u)
+
         # Kreiss-Oliger filter in x direction
         dx = self.dx
         sigma = self.sigma
@@ -142,6 +124,8 @@ class KreissOligerFilterO6_1D(Filter1D):
             )
             du[-1] = sigma * (u[-4] - 3.0 * u[-3] + 3.0 * u[-2] - u[-1]) / spr3
 
+        return du
+
 
 class KreissOligerFilterO8_1D(Filter1D):
     """
@@ -158,7 +142,9 @@ class KreissOligerFilterO8_1D(Filter1D):
     def get_sigma(self):
         return self.sigma
 
-    def filter(self, du, u):
+    def filter(self, u):
+        du = np.zeros_like(u)
+
         # Kreiss-Oliger filter in x direction
         dx = self.dx
         sigma = self.sigma
@@ -238,6 +224,8 @@ class KreissOligerFilterO8_1D(Filter1D):
                 )
                 / spr1
             )
+
+        return du
 
 
 """
