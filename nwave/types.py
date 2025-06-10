@@ -19,11 +19,11 @@ class FilterType(Enum):
     NONE = 1
     KREISS_OLIGER_O6 = 2
     KREISS_OLIGER_O8 = 3
-    JFT6 = 4
-    JFP6 = 5
-    JFT8 = 6
-    JFP8 = 7
-    KFP4 = 8
+    JTT6 = 4
+    JTP6 = 5
+    JTT8 = 6
+    JTP8 = 7
+    KP4 = 8
 
 
 class FilterApply(Enum):

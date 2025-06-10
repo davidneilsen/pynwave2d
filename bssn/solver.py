@@ -136,6 +136,9 @@ def main():
         elif params["Filter"] == "KO8":
             bssn_filter = KreissOligerFilterO8_1D(dr, sigma, apply_diss_boundaries=True)
             g.set_filter(bssn_filter)
+        elif params["Filter"] == "JTT6" or params["Filter"] == "JTP6":
+            bssn_filter = CompactFilter(r, params["ApplyFilter"], params["Filter"], sigma)
+            g.set_filter(bssn_filter)
         else:
             raise NotImplementedError("Filter = { KO6, KO8 }")
 

@@ -7,3 +7,4 @@ from .utils import *
 from .explicitderivs import *
 from .filters import *
 from .lusolve import *
+from .compactfilters import *
