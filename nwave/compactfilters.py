@@ -16,7 +16,7 @@ class CompactFilter(Filter1D):
         beta=0.4,
         kim_eps=0.0,
         kim_kc=0.0,
-        apply_diss_boundaries=False,
+        filter_boundary=False,
     ):
         self.N = len(x)
         self.dx = x[1] - x[0]
@@ -26,7 +26,7 @@ class CompactFilter(Filter1D):
         self.eps = kim_eps
         self.alpha = alpha
         self.beta = beta
-        self.apply_diss_boundaries = apply_diss_boundaries
+        self.filter_boundary = filter_boundary
         self.bands = (0, 0)  # Default bands for banded matrix storage
 
         if ftype == FilterType.KP4:
@@ -39,7 +39,7 @@ class CompactFilter(Filter1D):
             or ftype == FilterType.JTP8
         ):
             self.Ab, self.B, self.bands = init_JT_filter(
-                ftype, alpha, beta, apply_diss_boundaries, self.N
+                ftype, alpha, beta, filter_boundary, self.N
             )
         else:
             raise ValueError(f"Unsupported filter type: {ftype}")
@@ -66,8 +66,8 @@ class CompactFilter(Filter1D):
             ftype = FilterType.JTP8
         else:
             raise ValueError(f"Unknown filter type: {fstr}")
-        
-        afstr = params.get("ApplyFilter", "None")
+
+        afstr = params.get("FilterApply", "None")
         if afstr == "RHS":
             apply_filter = FilterApply.RHS
         elif afstr == "Vars":
@@ -79,26 +79,19 @@ class CompactFilter(Filter1D):
         else:
             raise ValueError(f"Unknown filter application: {afstr}")
 
-        n = params.get("N", 4)
+        n = len(x)
         if n < 10:
             raise ValueError("Filter order N must be at least 10")
-        freq = params.get("Frequency", 0)
-        alpha = params.get("Alpha", 0.4)
-        beta = params.get("Beta", 0.4)
-        kim_eps = params.get("KimEpsilon", 0.25)
-        kim_kc = params.get("KimCutoff", 0.88)
-        apply_diss_boundaries = params.get("ApplyDissipationBoundaries", False)
+
+        freq = params.get("FilterFrequency", 0)
+        alpha = params.get("FilterAlpha", 0.4)
+        beta = params.get("FilterBeta", 0.4)
+        kim_eps = params.get("FilterKimEpsilon", 0.25)
+        kim_kc = params.get("FilterKimCutoff", 0.88)
+        fbounds = params.get("FilterBoundary", False)
 
         return cls(
-            x,
-            apply_filter,
-            ftype,
-            freq,
-            alpha,
-            beta,
-            kim_eps,
-            kim_kc,
-            apply_diss_boundaries,
+            x, apply_filter, ftype, freq, alpha, beta, kim_eps, kim_kc, filter_boundary=fbounds
         )
 
     def apply(self, x):
@@ -257,7 +250,7 @@ def init_kim_filter(kc, eps, N):
     return P, Q
 
 
-def init_JT_filter(ftype, alpha, beta, apply_diss_boundaries, N):
+def init_JT_filter(ftype, alpha, beta, filter_boundary, N):
 
     kl, ku = 0, 0
     # Set beta = 0 for tridiagonal filters
@@ -322,7 +315,7 @@ def init_JT_filter(ftype, alpha, beta, apply_diss_boundaries, N):
     for i in range(ib, ie):
         Q[i, i - ib : i + ib + 1] = coeffs
 
-    if apply_diss_boundaries:
+    if filter_boundary:
         # Apply dissipation boundary conditions
         if ftype == FilterType.JTT6 or ftype == FilterType.JTP6:
             bcoeffs = _jt_bounds_p6(alpha, beta)

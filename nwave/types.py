@@ -1,5 +1,7 @@
 from enum import Enum
 
+CompactFilterTypes = ["JTT6", "JTP6", "JTT8", "JTP8", "KP6"]
+
 
 class BCType(Enum):
     """

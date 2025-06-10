@@ -30,9 +30,9 @@ class Filter2D(ABC):
     Abstract base class for a filters
     """
 
-    def __init__(self, dx, apply_filter: FilterApply, filter_type: FilterType):
+    def __init__(self, dx, filter_apply: FilterApply, filter_type: FilterType):
         self.dx = dx
-        self.apply_filter = apply_filter
+        self.filter_apply = filter_apply
         self.filter_type = filter_type
 
     @abstractmethod
@@ -42,8 +42,8 @@ class Filter2D(ABC):
     def get_filter_type(self):
         return self.filter_type
 
-    def get_apply_filter(self):
-        return self.apply_filter
+    def get_filter_apply(self):
+        return self.filter_apply
 
 
 class KreissOligerFilterO6_1D(Filter1D):
@@ -51,12 +51,12 @@ class KreissOligerFilterO6_1D(Filter1D):
     Kreiss-Oliger filter in 1D
     """
 
-    def __init__(self, dx, sigma, apply_diss_boundaries=True):
+    def __init__(self, dx, sigma, filter_boundary=True):
         self.sigma = sigma
-        self.APPLY_DISS_BOUNDARIES = apply_diss_boundaries
-        apply_filter = FilterApply.RHS
+        self.filter_boundary = filter_boundary
+        filter_apply = FilterApply.RHS
         filter_type = FilterType.KREISS_OLIGER_O6
-        super().__init__(dx, apply_filter, filter_type)
+        super().__init__(dx, filter_apply, filter_type)
 
     def get_sigma(self):
         return self.sigma
@@ -80,7 +80,7 @@ class KreissOligerFilterO6_1D(Filter1D):
             + u[6:]
         )
 
-        if self.APPLY_DISS_BOUNDARIES:
+        if self.filter_boundary:
             smr3 = 9.0 / 48.0 * 64 * dx
             smr2 = 43.0 / 48.0 * 64 * dx
             smr1 = 49.0 / 48.0 * 64 * dx
@@ -132,9 +132,9 @@ class KreissOligerFilterO8_1D(Filter1D):
     Kreiss-Oliger filter in 1D
     """
 
-    def __init__(self, dx, sigma, apply_diss_boundaries=True):
+    def __init__(self, dx, sigma, filter_boundary=True):
         self.sigma = sigma
-        self.APPLY_DISS_BOUNDARIES = apply_diss_boundaries
+        self.filter_boundary = filter_boundary
         apply_filter = FilterApply.RHS
         filter_type = FilterType.KREISS_OLIGER_O8
         super().__init__(dx, apply_filter, filter_type)
@@ -163,7 +163,7 @@ class KreissOligerFilterO8_1D(Filter1D):
             + u[8:]
         )
 
-        if self.APPLY_DISS_BOUNDARIES:
+        if self.filter_boundary:
             smr4 = 17.0 / 48.0 * 256 * dx
             smr3 = 59.0 / 48.0 * 256 * dx
             smr2 = 43.0 / 48.0 * 256 * dx

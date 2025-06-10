@@ -128,23 +128,27 @@ def main():
         raise NotImplementedError("D2 = { E4, E6, JP6 }")
 
     if "Filter" in params:
-        sigma = params.get("KOsigma", 0.1)
-        apply_diss_boundaries = params.get("ApplyDissBounds", False)
         if params["Filter"] == "KO6":
-            bssn_filter = KreissOligerFilterO6_1D(dr, sigma, apply_diss_boundaries)
+            sigma = params.get("FilterKOsigma", 0.1)
+            fbounds = params.get("FilterBoundary", False)
+            bssn_filter = KreissOligerFilterO6_1D(dr, sigma, filter_boundary=fbounds)
             g.set_filter(bssn_filter)
         elif params["Filter"] == "KO8":
-            bssn_filter = KreissOligerFilterO8_1D(dr, sigma, apply_diss_boundaries=True)
+            sigma = params.get("FilterKOsigma", 0.1)
+            fbounds = params.get("FilterBoundary", False)
+            bssn_filter = KreissOligerFilterO8_1D(dr, sigma, filter_boundary=fbounds)
             g.set_filter(bssn_filter)
-        elif params["Filter"] == "JTT6" or params["Filter"] == "JTP6":
-            bssn_filter = CompactFilter(r, params["ApplyFilter"], params["Filter"], sigma)
+        elif params["Filter"] in CompactFilterTypes:
+            bssn_filter = CompactFilter.from_params(params, g.dx[0])
+            g.set_filter(bssn_filter)
+        elif params["Filter"] == "None":
+            bssn_filter = None
             g.set_filter(bssn_filter)
         else:
-            raise NotImplementedError("Filter = { KO6, KO8 }")
+            raise NotImplementedError("Filter = { KO6, KO8, JTT6, JTP6, JTT8, JTP8, KP4 }")
 
         print(f"Filter type: {g.Filter.get_filter_type()}")
         print(f"Filter apply: {g.Filter.get_apply_filter()}")
-        print(f"Filter sigma: {bssn_filter.get_sigma()}")
 
     # GBSSN system: (sys, lapse advection, shift advection)
     #    sys = 0 (Eulerian), 1 (Lagrangian)
@@ -181,6 +185,12 @@ def main():
 
     for i in range(1, Nt + 1):
         rk4.step(eqs, g, dt)
+        if g.Filter.get_apply_filter() == FilterApply.APPLY_VARS:
+            # Apply filter to the variables
+            print("Applying filter to variables")
+            for j in range(eqs.Nu):
+                eqs.u[j][:] = g.Filter.filter(eqs.u[j])
+
         time += dt
         if i % print_interval == 0 or i % output_interval == 0:
             eqs.cal_constraints(eqs.u, g)
