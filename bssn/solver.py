@@ -76,9 +76,9 @@ def write_curve2(filename, time, x, eqs):
                 f.write(f"{xi:.8e} {di:.8e}\n")
 
 
-def main():
+def main(parfile):
     # Read parameters
-    with open("params.toml", "rb") as f:
+    with open(parfile, "rb") as f:
         params = tomllib.load(f)
 
     # Verify parameters
@@ -108,6 +108,7 @@ def main():
         g.set_D1(D1)
     elif params["D1"] == "JP6":
         D1 = CompactFirst1D(r, DerivType.D1_JP6, CFDSolve.LUSOLVE)
+        #D1 = CompactFirst1D(r, DerivType.D1_JP6, CFDSolve.D_LU)
         g.set_D1(D1)
     elif params["D1"] == "KP4":
         D1 = CompactFirst1D(r, DerivType.D1_KP4, CFDSolve.LUSOLVE)
@@ -123,6 +124,7 @@ def main():
         g.set_D2(D2)
     elif params["D2"] == "JP6":
         D2 = CompactSecond1D(r, DerivType.D2_JP6, CFDSolve.LUSOLVE)
+        #D2 = CompactSecond1D(r, DerivType.D2_JP6, CFDSolve.D_LU)
         g.set_D2(D2)
     else:
         raise NotImplementedError("D2 = { E4, E6, JP6 }")
@@ -204,9 +206,13 @@ def main():
         if i % output_interval == 0:
             fname = f"{output_dir}/bssn_{i:04d}.curve"
             write_curve(fname, time, g.xi[0], eqs)
+        if np.isnan(eqs.u[1]).any():
+            print("Solution has a NaN.  Bye.")
+            break
 
     confile.close()
 
 
 if __name__ == "__main__":
-    main()
+    parfile = sys.argv[1]
+    main(parfile)
