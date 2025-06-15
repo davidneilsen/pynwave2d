@@ -42,8 +42,8 @@ x = g.xi[0]
 D1 = ExplicitFirst44_1D(dx)
 D2 = ExplicitSecond44_1D(dx)
 
-C1 = CompactFirst1D(x, "D1_SP4")
-C2 = CompactSecond1D(x, "D2_JTT4")
+C1 = CompactFirst1D(x, DerivType.D1_JT4, CFDSolve.SCIPY)
+C2 = CompactSecond1D(x, DerivType.D2_JT4, CFDSolve.SCIPY)
 
 f, dxf, dxxf = func(x)
 
@@ -55,6 +55,9 @@ CXXF = C2.grad2(f)
 
 ab = C1.dxf.get_Abanded()
 q = C1.dxf.get_B()
+
+print(f"Shape of ab: {np.shape(ab)}")
+
 sys = LinearSolveLU(ab)
 rhs = np.matmul(q, f)
 cxf = sys.solve(rhs) / dx

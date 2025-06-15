@@ -141,7 +141,7 @@ def main(parfile):
             bssn_filter = KreissOligerFilterO8_1D(dr, sigma, filter_boundary=fbounds)
             g.set_filter(bssn_filter)
         elif params["Filter"] in CompactFilterTypes:
-            bssn_filter = CompactFilter.from_params(params, g.dx[0])
+            bssn_filter = CompactFilter.from_params(params, r)
             g.set_filter(bssn_filter)
         elif params["Filter"] == "None":
             bssn_filter = None
@@ -185,13 +185,15 @@ def main(parfile):
         [time, l2norm(eqs.C[0][nghost:-nghost]), l2norm(eqs.C[1][nghost:-nghost])]
     )
 
+    filter_frequency = g.Filter.get_frequency() if g.Filter else 1000000000
     for i in range(1, Nt + 1):
         rk4.step(eqs, g, dt)
         if g.Filter.get_apply_filter() == FilterApply.APPLY_VARS:
-            # Apply filter to the variables
-            print("Applying filter to variables")
-            for j in range(eqs.Nu):
-                eqs.u[j][:] = g.Filter.filter(eqs.u[j])
+            if i % filter_frequency == 0:
+                # Apply filter to the variables
+                print("Applying filter to variables")
+                for j in range(eqs.Nu):
+                    eqs.u[j][:] = g.Filter.filter(eqs.u[j])
 
         time += dt
         if i % print_interval == 0 or i % output_interval == 0:

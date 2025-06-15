@@ -12,7 +12,7 @@ class CompactDerivative:
         self.x = x
         self.N = len(x)
         self.dx = x[1] - x[0]
-        self.dtype = dtype
+        self.type = type
         self.overwrite = True
         self.checkf = True
         self.method = method
@@ -601,3 +601,4 @@ class CompactDerivative:
 
     def get_B(self):
         return self.B
+    

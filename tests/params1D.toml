@@ -1,6 +1,6 @@
-Nx = 81
+Nx = 500
 Xmin = -4.0
 Xmax = 4.0
-level = 0
+level = 1
 D1 = "E4"
 D2 = "E4"

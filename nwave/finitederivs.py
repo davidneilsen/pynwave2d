@@ -72,6 +72,12 @@ class CompactFirst1D(FirstDerivative1D):
     def grad(self, u) -> np.ndarray:
         # Apply compact scheme row-wise (derivative in x)
         return self.dxf.grad(u)
+    
+    def get_method(self):
+        return self.method
+    
+    def get_type(self):
+        return self.deriv_type
 
 
 class CompactSecond1D(SecondDerivative1D):
@@ -89,6 +95,11 @@ class CompactSecond1D(SecondDerivative1D):
         # Apply compact scheme row-wise (derivative in x)
         return self.dxxf.grad(u)
 
+    def get_method(self):
+        return self.method
+    
+    def get_type(self):
+        return self.deriv_type
 
 class CompactFirst2D(FirstDerivative2D):
     def __init__(self, x, y, type: DerivType, method: CFDSolve):
@@ -115,6 +126,11 @@ class CompactFirst2D(FirstDerivative2D):
         du = self.dyf.grad(np.transpose(u))
         return np.transpose(du)
 
+    def get_method(self):
+        return self.method
+    
+    def get_type(self):
+        return self.deriv_type
 
 class CompactSecond2D(SecondDerivative2D):
     def __init__(self, x, y, type: DerivType, method: CFDSolve):
@@ -140,3 +156,9 @@ class CompactSecond2D(SecondDerivative2D):
         # Apply compact scheme column-wise (derivative in y)
         du = self.dyyf.grad(np.transpose(u))
         return np.transpose(du)
+
+    def get_method(self):
+        return self.method
+    
+    def get_type(self):
+        return self.deriv_type

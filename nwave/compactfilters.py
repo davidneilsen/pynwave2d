@@ -11,7 +11,7 @@ class CompactFilter(Filter1D):
         x,
         apply_filter: FilterApply,
         ftype: FilterType,
-        freq,
+        frequency,
         alpha=0.4,
         beta=0.4,
         kim_eps=0.0,
@@ -21,7 +21,10 @@ class CompactFilter(Filter1D):
         self.N = len(x)
         self.dx = x[1] - x[0]
 
-        self.freq = freq
+        if frequency <= 0:
+            raise ValueError("Frequency must be positive")
+
+        self.frequency = frequency
         self.kc = kim_kc
         self.eps = kim_eps
         self.alpha = alpha
@@ -30,7 +33,7 @@ class CompactFilter(Filter1D):
         self.bands = (0, 0)  # Default bands for banded matrix storage
 
         if ftype == FilterType.KP4:
-            self.Ab, self.B = init_kim_filter(kim_kc, kim_eps, n)
+            self.Ab, self.B = init_kim_filter(kim_kc, kim_eps, self.N)
             self.bands = (2, 2)
         elif (
             ftype == FilterType.JTT6
@@ -44,7 +47,7 @@ class CompactFilter(Filter1D):
         else:
             raise ValueError(f"Unsupported filter type: {ftype}")
 
-        super().__init__(self.dx, apply_filter, ftype)
+        super().__init__(self.dx, apply_filter, ftype, frequency)
 
     @classmethod
     def from_params(cls, params, x):
@@ -83,7 +86,10 @@ class CompactFilter(Filter1D):
         if n < 10:
             raise ValueError("Filter order N must be at least 10")
 
-        freq = params.get("FilterFrequency", 0)
+        freq = params.get("FilterFrequency", 1)
+        if freq <= 0:
+            raise ValueError("Filter frequency must be positive")
+
         alpha = params.get("FilterAlpha", 0.4)
         beta = params.get("FilterBeta", 0.4)
         kim_eps = params.get("FilterKimEpsilon", 0.25)
@@ -91,7 +97,15 @@ class CompactFilter(Filter1D):
         fbounds = params.get("FilterBoundary", False)
 
         return cls(
-            x, apply_filter, ftype, freq, alpha, beta, kim_eps, kim_kc, filter_boundary=fbounds
+            x,
+            apply_filter,
+            ftype,
+            freq,
+            alpha,
+            beta,
+            kim_eps,
+            kim_kc,
+            filter_boundary=fbounds,
         )
 
     def apply(self, x):
@@ -106,7 +120,28 @@ class CompactFilter(Filter1D):
         """
         # use scipy solve_banded
         rhs = np.matmul(self.B, u)
-        return solve_banded(self.bands, self.Ab, rhs)
+        if self.filter_type == FilterType.KP4:
+            return u + solve_banded(self.bands, self.Ab, rhs)
+        else:
+            return solve_banded(self.bands, self.Ab, rhs)
+    
+    def get_A(self):
+        """
+        Get the banded matrix Ab for the filter.
+        """
+        return utils.banded_to_full_slow(self.Ab, self.bands[0], self.bands[1], self.N, self.N)
+
+    def get_B(self):
+        """
+        Get the banded matrix B for the filter.
+        """
+        return self.B
+    
+    def get_Abanded(self):
+        """
+        Get the banded matrix Ab for the filter.
+        """
+        return self.Ab
 
 
 def kim_filter_cal_coeff(kc):
@@ -325,8 +360,8 @@ def init_JT_filter(ftype, alpha, beta, filter_boundary, N):
             raise NotImplementedError("Unknown filter type for dissipation boundaries")
 
         for i in range(len(bcoeffs)):
-            Q[0 : len(bcoeffs[i]), i] = bcoeffs[i]
-            Q[N - len(bcoeffs[i]) : N, N - 1 - i] = bcoeffs[i][::-1]
+            Q[i, 0 : len(bcoeffs[i])] = bcoeffs[:]
+            Q[N - 1 - i, N - len(bcoeffs[i]) : N] = bcoeffs[i][::-1]
     else:
         # Q: Identity terms
         for i in range(ib):

@@ -8,3 +8,5 @@ from .explicitderivs import *
 from .filters import *
 from .lusolve import *
 from .compactfilters import *
+from .cd import *
+from .cf import *

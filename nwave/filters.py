@@ -9,10 +9,11 @@ class Filter1D(ABC):
     Abstract base class for a filters
     """
 
-    def __init__(self, dx, apply_filter: FilterApply, filter_type: FilterType):
+    def __init__(self, dx, apply_filter: FilterApply, filter_type: FilterType, frequency):
         self.dx = dx
         self.apply_filter = apply_filter
         self.filter_type = filter_type
+        self.frequency = frequency 
 
     @abstractmethod
     def filter(self, u) -> np.ndarray:
@@ -24,16 +25,20 @@ class Filter1D(ABC):
     def get_apply_filter(self):
         return self.apply_filter
 
+    def get_frequency(self):
+        return self.frequency
+
 
 class Filter2D(ABC):
     """
     Abstract base class for a filters
     """
 
-    def __init__(self, dx, filter_apply: FilterApply, filter_type: FilterType):
+    def __init__(self, dx, filter_apply: FilterApply, filter_type: FilterType, frequency):
         self.dx = dx
         self.filter_apply = filter_apply
         self.filter_type = filter_type
+        self.frequency = frequency 
 
     @abstractmethod
     def filter(self, u) -> np.ndarray:
@@ -45,6 +50,8 @@ class Filter2D(ABC):
     def get_filter_apply(self):
         return self.filter_apply
 
+    def get_frequency(self):
+        return self.frequency
 
 class KreissOligerFilterO6_1D(Filter1D):
     """
@@ -56,7 +63,8 @@ class KreissOligerFilterO6_1D(Filter1D):
         self.filter_boundary = filter_boundary
         filter_apply = FilterApply.RHS
         filter_type = FilterType.KREISS_OLIGER_O6
-        super().__init__(dx, filter_apply, filter_type)
+        frequency = 1
+        super().__init__(dx, filter_apply, filter_type, frequency)
 
     def get_sigma(self):
         return self.sigma
@@ -137,7 +145,8 @@ class KreissOligerFilterO8_1D(Filter1D):
         self.filter_boundary = filter_boundary
         apply_filter = FilterApply.RHS
         filter_type = FilterType.KREISS_OLIGER_O8
-        super().__init__(dx, apply_filter, filter_type)
+        frequency = 1
+        super().__init__(dx, apply_filter, filter_type, frequency)
 
     def get_sigma(self):
         return self.sigma

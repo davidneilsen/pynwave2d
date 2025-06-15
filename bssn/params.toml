@@ -1,16 +1,19 @@
-Nt = 10000
+Nt = 50000
 Nx = 10000
+Xmin =-100.0
 Xmax = 100.0
 
 NGhost = 3
-cfl = 0.1
+cfl = 0.15
 eta = 2.0
 D1 = "JP6"
 D2 = "JP6"
 
-Filter = "KO6"
+Filter = "JTT8"
 FilterKOsigma = 0.5
 FilterBoundary = true
+FilterApply = "Vars"
+FilterFrequency = 10
 
 #Filter = "JTT8"
 #FilterApply = "Vars"
@@ -21,10 +24,10 @@ FilterBoundary = true
 
 # initial data types = [ "Puncture", "EddingtonFinkelstein" ]
 Mass = 1.0
-collapsed_lapse = true
+collapsed_lapse = false
 initial_data = "Puncture"
 
 # output parameters
 output_dir = "output_bssn"
-output_interval = 20
+output_interval = 50
 print_interval = 5

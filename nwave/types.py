@@ -1,6 +1,16 @@
 from enum import Enum
 
-CompactFilterTypes = ["JTT6", "JTP6", "JTT8", "JTP8", "KP6"]
+CompactFilterTypes = [
+    "JTT4",
+    "JTT6",
+    "JTP6",
+    "JTT8",
+    "JTP8",
+    "KP4",
+    "DSQ61",
+    "ME44",
+    "ME642",
+]
 
 
 class BCType(Enum):
@@ -21,11 +31,12 @@ class FilterType(Enum):
     NONE = 1
     KREISS_OLIGER_O6 = 2
     KREISS_OLIGER_O8 = 3
-    JTT6 = 4
-    JTP6 = 5
-    JTT8 = 6
-    JTP8 = 7
-    KP4 = 8
+    JTT4 = 4
+    JTT6 = 5
+    JTP6 = 6
+    JTT8 = 7
+    JTP8 = 8
+    KP4 = 9
 
 
 class FilterApply(Enum):
@@ -51,9 +62,23 @@ class DerivType(Enum):
     D2_JT4 = 8
     D1_JT6 = 9
     D2_JT6 = 10
-    D1_KP4 = 20
-    D1_SP4 = 21
-    D1_DE4 = 22
+    D1_BYUP6 = 11
+    D2_BYUP6 = 12
+    D1_Wm6 = 13
+    D1_Wp6 = 14
+    D1_DSQ6A = 15
+    D2_DSQ6A = 16
+    D1_ME44 = 17
+    D2_ME44 = 18
+    D1_ME642 = 19
+    D2_ME642 = 20
+    D1_KP4 = 21
+    D1_SP4 = 22
+    D1_DE4 = 23
+    D1_DSQ6B = 24
+    D2_DSQ6B = 25
+    D1_DSQ6B_LEFT = 26
+    D1_DSQ6B_RIGHT = 27
 
 
 class CFDSolve(Enum):
