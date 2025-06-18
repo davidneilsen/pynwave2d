@@ -17,7 +17,8 @@ class Grid(ABC):
         self.dx = dx
         self.D1 = None
         self.D2 = None
-        self.Filter = None
+        self.num_filters = 0
+        self.Filter = []
         self.nghost = nghost
 
     @abstractmethod
@@ -124,7 +125,8 @@ class Grid1D(Grid):
         self.D2 = d2
 
     def set_filter(self, filter: fi.Filter1D):
-        self.Filter = filter
+        self.num_filters += 1
+        self.Filter.append(filter)
 
 
 class Grid2D(Grid):
@@ -177,4 +179,5 @@ class Grid2D(Grid):
         self.D2 = d2
 
     def set_filter(self, filter: fi.Filter2D):
-        self.Filter = filter
+        self.num_filters += 1
+        self.Filter.append(filter)

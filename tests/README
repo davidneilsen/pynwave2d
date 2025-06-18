@@ -1,0 +1,25 @@
+
+Performance Testing:
+-----------------------------------
+
+I tried a few things.  Some gave too much info, which then became difficult
+to interpret.
+
+1.  Pyinstrument.  This worked better than others.  The output can be
+    viewed in a browser by passing the "-o outputfile.html" flag.
+    Otherwise, the results are shown as text.
+
+    pyinstrument -o level9.html d1.py
+
+2.  cProfile gave too much info about very low-level routines.  I found
+    it difficult to connect with code in my script.  
+    (At least using default settings)  The best way to view the results
+    was with snakeviz
+
+    python -m cProfile -o temp.dat d1.p
+    snakeviz temp.dat
+
+Notes:
+https://realpython.com/python-profiling/
+
+

@@ -75,6 +75,17 @@ def write_curve2(filename, time, x, eqs):
             for xi, di in zip(rr, ff):
                 f.write(f"{xi:.8e} {di:.8e}\n")
 
+def get_filter_type(filter_str):
+    try:
+        return filter_type_map[filter_str]
+    except KeyError:
+        raise ValueError(f"Unknown filter type string: '{filter_str}'")
+
+def get_filter_apply(filter_str):
+    try:
+        return filter_apply_map[filter_str]
+    except KeyError:
+        raise ValueError(f"Unknown filter apply string: '{filter_str}'")
 
 def main(parfile):
     # Read parameters
@@ -129,28 +140,35 @@ def main(parfile):
     else:
         raise NotImplementedError("D2 = { E4, E6, JP6 }")
 
-    if "Filter" in params:
-        if params["Filter"] == "KO6":
-            sigma = params.get("FilterKOsigma", 0.1)
-            fbounds = params.get("FilterBoundary", False)
-            bssn_filter = KreissOligerFilterO6_1D(dr, sigma, filter_boundary=fbounds)
-            g.set_filter(bssn_filter)
-        elif params["Filter"] == "KO8":
-            sigma = params.get("FilterKOsigma", 0.1)
-            fbounds = params.get("FilterBoundary", False)
-            bssn_filter = KreissOligerFilterO8_1D(dr, sigma, filter_boundary=fbounds)
-            g.set_filter(bssn_filter)
-        elif params["Filter"] in CompactFilterTypes:
-            bssn_filter = CompactFilter.from_params(params, r)
-            g.set_filter(bssn_filter)
-        elif params["Filter"] == "None":
-            bssn_filter = None
-            g.set_filter(bssn_filter)
-        else:
-            raise NotImplementedError("Filter = { KO6, KO8, JTT6, JTP6, JTT8, JTP8, KP4 }")
+    filter_str = params.get("Filter", "None")
+    ftype = get_filter_type(filter_str)
+    if ftype == FilterType.KREISS_OLIGER_O6:
+        sigma = params.get("FilterKOsigma", 0.1)
+        fbounds = params.get("FilterBoundary", False)
+        bssn_filter = KreissOligerFilterO6_1D(dr, sigma, filter_boundary=fbounds)
+        g.set_filter(bssn_filter)
+    elif ftype == FilterType.KREISS_OLIGER_O8:
+        sigma = params.get("FilterKOsigma", 0.1)
+        fbounds = params.get("FilterBoundary", False)
+        bssn_filter = KreissOligerFilterO8_1D(dr, sigma, filter_boundary=fbounds)
+        g.set_filter(bssn_filter)
+    elif ftype in CompactFilterTypes:
+        fapply = get_filter_apply(params.get("FilterApply", FilterApply.APPLY_VARS))
+        fmethod = CFDSolve.SCIPY
+        fbounds = params.get("FilterBoundary", False)
+        ffreq = params.get("FilterFrequency", 1)
+        alpha = params.get("FilterAlpha", 0.0)
+        beta = params.get("FilterBeta", 0.0)
+        bssn_filter = NCompactFilter.init_filter(r, ftype, fapply, fmethod, ffreq, fbounds, alpha, beta)
+        g.set_filter(bssn_filter)
+    elif ftype == FilterType.NONE:
+        pass
+    else:
+        raise NotImplementedError("Filter = { KO6, KO8, JTT6, JTP6, JTT8, JTP8, KP4 }")
 
-        print(f"Filter type: {g.Filter.get_filter_type()}")
-        print(f"Filter apply: {g.Filter.get_apply_filter()}")
+    if g.num_filters > 0:
+        print(f"Filter type: {g.Filter[0].get_filter_type()}")
+        print(f"Filter apply: {g.Filter[0].get_apply_filter()}")
 
     # GBSSN system: (sys, lapse advection, shift advection)
     #    sys = 0 (Eulerian), 1 (Lagrangian)
@@ -185,15 +203,21 @@ def main(parfile):
         [time, l2norm(eqs.C[0][nghost:-nghost]), l2norm(eqs.C[1][nghost:-nghost])]
     )
 
-    filter_frequency = g.Filter.get_frequency() if g.Filter else 1000000000
+    filvar = None
+    filter_frequency = -1
+    if g.num_filters > 0:
+        for fx in g.Filter:
+            if fx.get_apply_filter == FilterApply.APPLY_VARS:
+                filvar = fx
+                filter_frequency = fx.get_frequency()
+
     for i in range(1, Nt + 1):
         rk4.step(eqs, g, dt)
-        if g.Filter.get_apply_filter() == FilterApply.APPLY_VARS:
-            if i % filter_frequency == 0:
-                # Apply filter to the variables
-                print("Applying filter to variables")
-                for j in range(eqs.Nu):
-                    eqs.u[j][:] = g.Filter.filter(eqs.u[j])
+        if filter_frequency > 0 and i % filter_frequency == 0:
+            # Apply filter to the variables
+            print("Applying filter to variables")
+            for j in range(eqs.Nu):
+                eqs.u[j][:] = filvar.filter(eqs.u[j])
 
         time += dt
         if i % print_interval == 0 or i % output_interval == 0:

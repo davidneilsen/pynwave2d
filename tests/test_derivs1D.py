@@ -32,8 +32,11 @@ def func2(x):
     return f, dxf, dxxf
 
 
-with open("params1D.toml", "rb") as f:
-    params = tomllib.load(f)
+
+nx0 = 14
+level = 4
+nx = int((2**level)*nx0 + 1)
+params = { "Nx": nx, "Xmin": -4.0, "Xmax": 4.0 }
 
 g = Grid1D(params)
 dx = g.dx[0]
@@ -42,8 +45,10 @@ x = g.xi[0]
 D1 = ExplicitFirst44_1D(dx)
 D2 = ExplicitSecond44_1D(dx)
 
-C1 = CompactFirst1D(x, DerivType.D1_JT4, CFDSolve.SCIPY)
-C2 = CompactSecond1D(x, DerivType.D2_JT4, CFDSolve.SCIPY)
+C1 = NCompactDerivative.deriv(x, DerivType.D1_JP6, CFDSolve.SCIPY)
+C2 = NCompactDerivative.deriv(x, DerivType.D2_JP6, CFDSolve.SCIPY)
+
+C3 = NCompactDerivative.deriv(x, DerivType.D1_JP6, CFDSolve.LUSOLVE)
 
 f, dxf, dxxf = func(x)
 
@@ -51,17 +56,9 @@ DXF = D1.grad(f)
 DXXF = D2.grad2(f)
 
 CXF = C1.grad(f)
-CXXF = C2.grad2(f)
-
-ab = C1.dxf.get_Abanded()
-q = C1.dxf.get_B()
-
-print(f"Shape of ab: {np.shape(ab)}")
-
-sys = LinearSolveLU(ab)
-rhs = np.matmul(q, f)
-cxf = sys.solve(rhs) / dx
-e3 = np.abs(cxf - CXF)
+CXXF = C2.grad(f)
+C3XF = C3.grad(f)
+e3 = np.abs(C3XF - CXF)
 
 err_x = DXF - dxf
 err_xx = DXXF - dxxf
@@ -83,6 +80,7 @@ ax.semilogy(x,e1d,marker=".",label="FD")
 ax.semilogy(x,c1d,marker=".",label="CFD")
 plt.legend()
 plt.title("Error dxxf 1D (x)")
+plt.show()
 
 c1d = np.abs(crr_x)
 e1d = np.abs(err_x)
@@ -91,15 +89,14 @@ ax.semilogy(x,e1d,marker=".",label="FD")
 ax.semilogy(x,c1d,marker=".",label="CFD")
 plt.legend()
 plt.title("Error dxf 1D (x)")
+plt.show()
 
 fig, ax = plt.subplots()
-ax.semilogy(x,e3,marker=".",label="Solvers")
+#ax.plot(x,DXF,marker=".",label="Explicit")
+#ax.plot(x,CXF,marker=".",label="CX")
+#ax.plot(x,C3XF,marker=".",label="C3X")
+ax.semilogy(x,e3,marker=".",label="CFD Solve Methods")
 plt.legend()
 plt.title("Error in LU solved system")
-
-
-
-
-
 plt.show()
 

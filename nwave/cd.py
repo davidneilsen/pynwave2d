@@ -39,14 +39,16 @@ CompactExplicitDerivatives = [
 
 
 class NCompactDerivative:
-    def __init__(self, N: int, dtype: DerivType, method: CFDSolve, Pmat, Qmat, denom, mask=None):
+    def __init__(
+        self, N: int, dtype: DerivType, method: CFDSolve, Pmat, Qmat, denom, mask=None
+    ):
         """
         Initialize the NCompactDerivative class.
         """
         if dtype in CompactExplicitDerivatives:
             if method != CFDSolve.D_LU and method != CFDSolve.D_INV:
                 print(
-                    f"Method {method} not supported for explicit derivatives of type {dtype}"
+                    f"Method {method} not supported for explicit derivatives of type {dtype}.  Using D_LU instead."
                 )
             self.method = CFDSolve.D_LU
         else:
@@ -66,6 +68,7 @@ class NCompactDerivative:
         self.mask = mask
 
         if self.method == CFDSolve.LUSOLVE:
+            # factor the P matrix for LU solve
             self.lu_factorization = lu_banded(
                 self.Pbands,
                 self.P,
@@ -86,6 +89,7 @@ class NCompactDerivative:
             else:
                 self.D = solve_banded(self.Pbands, self.P, self.Q)
         elif self.method == CFDSolve.SCIPY or method == CFDSolve.PENTAPY:
+            # no additional setup required for these methods
             pass
         else:
             raise ValueError(f"Compact derivative method = {method} not implemented")
@@ -174,7 +178,7 @@ class NCompactDerivative:
         if self.D is None:
             raise ValueError("D matrix is not initialized")
         return self.D
-    
+
     def get_mask(self) -> np.ndarray:
         """
         Get the mask array.
@@ -191,11 +195,15 @@ class NCompactDerivative:
             raise ValueError(f"Input array length {len(f)} does not match N {self.N}")
 
         if self.method == CFDSolve.LUSOLVE:
+            # DGBMV is about 4 times slower than numpy matmul
+            # rhs = dgbmv(self.N, self.N, self.Qbands[0], self.Qbands[1], self.denom, self.Q, f)
             rhs = np.matmul(self.Q, f) * self.denom
             dxf = lu_solve_banded(
                 self.lu_factorization, rhs, overwrite_b=True, check_finite=self.checkf
             )
-        elif self.method == CFDSolve.D_INV or self.method == CFDSolve.D_LU:
+        elif self.method == CFDSolve.D_INV:
+            dxf = np.matmul(self.D, f) * self.denom
+        elif self.method == CFDSolve.D_LU:
             dxf = np.matmul(self.D, f) * self.denom
         elif self.method == CFDSolve.SCIPY:
             rhs = np.matmul(self.Q, f) * self.denom
@@ -650,6 +658,7 @@ def _coeffs_D2_BYUP6(optcoeffs2):
     Rmat = [Q2DiagInterior, Q2DiagBoundary, (2, 2), 1]
     return Lmat, Rmat
 
+
 def _coeffs_D1_Wm6():
     Lcoeff = np.array([829 / 1200, 1.0, 0.0])
     Rcoeff = np.array(
@@ -677,6 +686,7 @@ def _coeffs_D1_Wm6():
     Lmat = [Lcoeff, [Lbcoeff0, Lbcoeff1, Lbcoeff2], (1, 1), 1]
     Rmat = [Rcoeff, [Rbcoeff0, Rbcoeff1, Rbcoeff2], (3, 3), -1]
     return Lmat, Rmat
+
 
 def _coeffs_D1_X6_RIGHT():
     Lcoeff = np.array([829 / 1200, 1.0, 0.0])
@@ -733,7 +743,7 @@ def _coeffs_D1_DSQ6B_LEFT():
 
     Rcoeffb0 = np.array([-1.0, 4.0, -3.0]) / 2.0
     Rcoeffb1 = np.array([-1.0, 0.0, 1.0]) / 2.0
-    Rcoeffb2 = np.array([-1.0, 6.0, -18.0, 10.0, 3.0])/ 12.0 
+    Rcoeffb2 = np.array([-1.0, 6.0, -18.0, 10.0, 3.0]) / 12.0
     Rcoeffb3 = np.array([-1.0, 6.0, -18.0, 10.0, 3.0]) / 12.0
 
     Lbands = (1, 1)
@@ -765,7 +775,7 @@ def _coeffs_D1_DSQ6B_RIGHT():
     Lcoeffb0 = np.array([1.0, 0.0])
     Lcoeffb1 = np.array([0.0, 1.0, 0.0])
     Lcoeffb2 = np.array([0.0, 0.0, 1.0, 0.0])
-    Lcoeffb3 = np.array([0.0, 0.0, 0.7139165, 1.0 ])
+    Lcoeffb3 = np.array([0.0, 0.0, 0.7139165, 1.0])
 
     Rcoeffb0 = np.array([-3.0, 4.0, -1.0]) / 2.0
     Rcoeffb1 = np.array([0.0, -3.0, 4.0, -1.0]) / 2.0
@@ -842,14 +852,23 @@ def build_derivative(N: int, dtype: DerivType):
     else:
         pparity = Pmat[3]
         pbands = Pmat[2]
-        Pf = construct_banded_matrix(N, pbands[0], pbands[1], Pmat[0], Pmat[1], pparity)
+        Pf = construct_banded_matrix_numba(
+            N, pbands[0], pbands[1], Pmat[0], Pmat[1], pparity
+        )
         P = full_to_banded(Pf, pbands[0], pbands[1])
+
+    nqb = 0
+    for iq in range(len(Qmat[1])):
+        nqb = max(nqb, len(Qmat[1][iq]) - 1 - iq)
+    qtotbands = (nqb, nqb)
 
     qparity = Qmat[3]
     qbands = Qmat[2]
-    Q = construct_banded_matrix(N, qbands[0], qbands[1], Qmat[0], Qmat[1], qparity)
+    Q = construct_banded_matrix_numba(
+        N, qbands[0], qbands[1], Qmat[0], Qmat[1], qparity
+    )
 
-    return [P, pbands], [Q, qbands]
+    return [P, pbands], [Q, qtotbands]
 
 
 def build_bh_derivative(N: int, dtype0: DerivType, dtypeBH: DerivType, mask):
@@ -860,7 +879,7 @@ def build_bh_derivative(N: int, dtype0: DerivType, dtypeBH: DerivType, mask):
         dtype0 (DerivType): Type of derivative for the interior region.
         dtypeBH (DerivType): Type of derivative for the boundary handling region.
         lambda (float): Mask function.  lambda = 1.0 corresponds to the background
-                                        lambda = 0.0 corresponds to the BH region. 
+                                        lambda = 0.0 corresponds to the BH region.
     Returns:
         tuple: Banded matrices for the interior and boundary handling regions.
     """
@@ -881,13 +900,13 @@ def build_bh_derivative(N: int, dtype0: DerivType, dtypeBH: DerivType, mask):
     if p0bands[0] == 0 and p0bands[1] == 0:
         P0f = np.identity(N, dtype=np.float64)
     else:
-        P0f = banded_to_full_slow(P0, p0bands[0], p0bands[1], N, N)
+        P0f = banded_to_full(P0, p0bands[0], p0bands[1], N, N)
 
     if pbhbands[0] == 0 and pbhbands[1] == 0:
         PBHf = np.identity(N, dtype=np.float64)
     else:
         # Convert the banded matrix PBH to a full matrix
-        PBHf = banded_to_full_slow(PBH, pbhbands[0], pbhbands[1], N, N)
+        PBHf = banded_to_full(PBH, pbhbands[0], pbhbands[1], N, N)
 
     for i in range(N):
         P[i, :] = mask[i] * P0f[i, :] + (1 - mask[i]) * PBHf[i, :]

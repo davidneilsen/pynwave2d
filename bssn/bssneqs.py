@@ -5,7 +5,7 @@ from numba import njit
 
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from nwave import Equations, Grid, l2norm, ExplicitFirst642_1D, ExplicitSecond642_1D
+from nwave import *
 
 DEBUG = False
 
@@ -226,13 +226,36 @@ class BSSN(Equations):
                 "Grid object 'g' must have non-None D1 and D2 attributes with 'grad' and 'grad2' methods."
             )
 
-        d_alpha = g.D1.grad(alpha)
-        d_beta_r = g.D1.grad(beta_r)
-        d_chi = g.D1.grad(chi)
-        d_g_rr = g.D1.grad(g_rr)
-        d_g_tt = g.D1.grad(g_tt)
-        d_K = g.D1.grad(K)
-        d_Gamma_r = g.D1.grad(Gamma_r)
+        filrhs = None
+        if g.num_filters > 0:
+            for fx in g.Filter:
+                if fx.apply_filter == FilterApply.APPLY_DERIVS:
+                    filrhs = fx
+        
+        if filrhs is not None:
+            f_alpha = filrhs.filter(alpha)
+            f_beta_r = filrhs.filter(beta_r)
+            f_chi = filrhs.filter(chi)
+            f_g_rr = filrhs.filter(g_rr)
+            f_g_tt = filrhs.filter(g_tt)
+            f_K = filrhs.filter(K)
+            f_Gamma_r = filrhs.filter(Gamma_r)
+        else:
+            f_alpha = alpha
+            f_beta_r = beta_r
+            f_chi = chi
+            f_g_rr = g_rr
+            f_g_tt = g_tt
+            f_K = K
+            f_Gamma_r = Gamma_r
+
+        d_alpha = g.D1.grad(f_alpha)
+        d_beta_r = g.D1.grad(f_beta_r)
+        d_chi = g.D1.grad(f_chi)
+        d_g_rr = g.D1.grad(f_g_rr)
+        d_g_tt = g.D1.grad(f_g_tt)
+        d_K = g.D1.grad(f_K)
+        d_Gamma_r = g.D1.grad(f_Gamma_r)
 
         USE_ADVECTION = True
         if USE_ADVECTION and g.D1.HAVE_ADVECTIVE_DERIV:
@@ -270,11 +293,11 @@ class BSSN(Equations):
 
         if self.have_d2:
             # Use native second derivatives
-            d2_chi = g.D2.grad2(chi)
-            d2_g_rr = g.D2.grad2(g_rr)
-            d2_g_tt = g.D2.grad2(g_tt)
-            d2_alpha = g.D2.grad2(alpha)
-            d2_beta_r = g.D2.grad2(beta_r)
+            d2_chi = g.D2.grad2(f_chi)
+            d2_g_rr = g.D2.grad2(f_g_rr)
+            d2_g_tt = g.D2.grad2(f_g_tt)
+            d2_alpha = g.D2.grad2(f_alpha)
+            d2_beta_r = g.D2.grad2(f_beta_r)
         else:
             # Use first derivatives to approximate second derivatives
             d2_chi = g.D1.grad(d_chi)

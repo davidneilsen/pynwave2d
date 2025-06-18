@@ -1,4 +1,5 @@
 import numpy as np
+from numba import njit
 
 
 def full_to_banded_slow(A, kl, ku):
@@ -275,3 +276,52 @@ def write_matrix_to_file(filename, matrix):
         for row in matrix:
             line = " ".join(f"{val:.1e}" for val in row)
             f.write(line + "\n")
+
+@njit
+def Xbanded_matvec(N, kl, ku, b : np.ndarray, Ab : np.ndarray, x : np.ndarray):
+    # f = Ab x.  Ab is the banded matrix in LAPACK format.
+    for i in range(N):
+        b[i] = 0.0
+        for offset in range(-kl, ku + 1):
+            j = i + offset
+            if 0 <= j < N:
+                b[i] += Ab[offset + kl, j] * x[j]
+
+@njit
+def banded_matvec(N, kl, ku, Ab, x):
+    b = np.zeros(N)
+    for i in range(N):
+        for j in range(max(0, i - kl), min(N, i + ku + 1)):
+            b[i] += Ab[ku + i - j, j] * x[j]
+    return b
+
+@njit
+def construct_banded_matrix_numba(N, kl, ku, coeffs, bcoeffs, parity):
+    assert kl == ku
+    assert len(coeffs) == kl + ku + 1
+
+    A = np.zeros((N, N))
+    p = len(bcoeffs)
+
+    for i in range(N):
+        if i < p:
+            b = bcoeffs[i]
+            m = len(b)
+            for j in range(m):
+                if j < N:
+                    A[i, j] = b[j]
+        elif i >= N - p:
+            idx = N - 1 - i
+            b = bcoeffs[idx]
+            m = len(b)
+            for j in range(m):
+                col = N - m + j
+                if col < N:
+                    A[i, col] = parity * b[m - 1 - j]
+        else:
+            for offset in range(-kl, ku + 1):
+                j = i + offset
+                if 0 <= j < N:
+                    A[i, j] = coeffs[offset + kl]
+
+    return A

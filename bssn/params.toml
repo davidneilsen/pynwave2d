@@ -1,5 +1,5 @@
-Nt = 50000
-Nx = 10000
+Nt = 100
+Nx =  10000
 Xmin =-100.0
 Xmax = 100.0
 
@@ -14,6 +14,7 @@ FilterKOsigma = 0.5
 FilterBoundary = true
 FilterApply = "Vars"
 FilterFrequency = 10
+FilterAlpha = 0.4
 
 #Filter = "JTT8"
 #FilterApply = "Vars"

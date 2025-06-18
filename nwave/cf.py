@@ -4,6 +4,166 @@ from .utils import *
 from .filters import Filter1D
 from .types import *
 
+CompactFilterTypes = {
+    FilterType.JTT4,
+    FilterType.JTT6,
+    FilterType.JTP6,
+    FilterType.JTT8,
+    FilterType.JTP8,
+    FilterType.KP4,
+}
+
+class NCompactFilter(Filter1D):
+    """
+    A compact filter class.
+    """
+
+    def __init__(
+        self,
+        N,
+        apply_filter: FilterApply,
+        filter_type: FilterType,
+        method: CFDSolve,
+        Pmat,
+        Qmat,
+        frequency,
+        dx,
+        mask=None,
+    ):
+        self.N = N
+        self.filter_type = filter_type
+        self.apply_filter = apply_filter
+        self.method = method
+        self.frequency = frequency
+        self.P = Pmat[0]
+        self.Pbands = Pmat[1]
+        self.Q = Qmat[0]
+        self.Qbands = Qmat[1]
+        self.mask = mask
+        self.overwrite = True
+        self.checkf = True
+        self.dx = dx
+        super().__init__(dx, apply_filter, filter_type, frequency)
+
+    @classmethod
+    def init_filter(
+        cls,
+        r,
+        filter_type: FilterType,
+        apply_filter: FilterApply,
+        method: CFDSolve,
+        frequency: int,
+        filter_bounds,
+        alpha,
+        beta=0.0,
+    ):
+        """
+        Build a filter based on the specified type and parameters.
+
+        Parameters:
+            ftype (FilterType): The type of filter to build.
+            alpha (float): Parameter for JTT6, JTP6, JTT8, JTP8 filters.
+            beta (float): Parameter for JTX6, JTX8 filters.
+
+        Returns:
+            Filter1D: The constructed filter object.
+        """
+        N = len(r)
+        dr = r[1] - r[0]
+
+        Pmat, Qmat = build_filter(N, filter_type, filter_bounds, alpha, beta)
+        return cls(N, apply_filter, filter_type, method, Pmat, Qmat, frequency, dr)
+
+    @classmethod
+    def init_bh_filter(
+        cls,
+        r,
+        ftype: FilterType,
+        apply_filter: FilterApply,
+        method: CFDSolve,
+        frequency: int,
+        rbh,
+        filter_bounds,
+        alpha,
+        beta=0.0,
+    ):
+
+        N = len(r)
+        dr = r[1] - r[0]
+
+        mask0 = 1.0
+        maskBH = 0.0
+        r0 = rbh - 2 * dr
+        r1 = rbh - dr
+        r2 = rbh + dr
+        r3 = rbh + 2 * dr
+        mask = generalized_transition_profile(
+            r, mask0, maskBH, r0, r1, r2, r3, method="tanh"
+        )
+        Pmat, Qmat = build_bh_filter(N, ftype, r, mask, filter_bounds, alpha, beta)
+        return cls(N, apply_filter, ftype, method, Pmat, Qmat, frequency, dr, mask)
+
+    def get_filter_type(self):
+        return self.filter_type
+
+    def get_apply_filter(self):
+        return self.apply_filter
+
+    def get_frequency(self):
+        return self.frequency
+
+    def get_P(self):
+        """
+        Get the P matrix.
+        """
+        return self.P
+
+    def get_Pbands(self):
+        """
+        Get the P bands.
+        """
+        return self.Pbands
+
+    def get_Q(self):
+        """
+        Get the Q matrix.
+        """
+        return self.Q
+
+    def get_Qbands(self):
+        """
+        Get the Q bands.
+        """
+        return self.Qbands
+
+    def filter(self, u):
+        """
+        Apply the filter to the input array u.
+        """
+        if len(u) != self.N:
+            raise ValueError(
+                f"Input array length {len(u)} does not match filter size {self.N}."
+            )
+
+        if self.method == CFDSolve.SCIPY:
+            rhs = np.matmul(self.Q, u)
+            u_f = solve_banded(self.Pbands, self.P, rhs)
+        elif self.method == CFDSolve.LUSOLVE:
+            rhs = np.matmul(self.Q, u)
+            u_f = solve_banded(
+                self.Pbands,
+                self.P,
+                rhs,
+                overwrite_ab=self.overwrite,
+                check_finite=self.checkf,
+            )
+        else:
+            raise ValueError(
+                f"Unsupported filter application type: {self.apply_filter}"
+            )
+
+        return u_f
+
 
 def _filter_jtt4_Q(alpha):
     Q_coeffs = 0.5 * np.array(
@@ -178,7 +338,7 @@ def _filter_jtp8_P(alpha, beta):
     return [P_coeffs, P_bcoeffs, (2, 2), 1]
 
 
-def build_filter(N: int, ftype: FilterType, alpha=0.0, beta=0.0):
+def build_filter(N: int, ftype: FilterType, filter_bounds, alpha, beta):
     """
     Build a filter based on the specified type and parameters.
 
@@ -190,20 +350,18 @@ def build_filter(N: int, ftype: FilterType, alpha=0.0, beta=0.0):
     Returns:
         Filter1D: The constructed filter object.
     """
-    beta0 = 0.0
-
     if ftype == FilterType.JTT4:
         Pmat = _filter_jtt4_P(alpha)
         Qmat = _filter_jtt4_Q(alpha)
     elif ftype == FilterType.JTT6:
         Pmat = _filter_jtt6_P(alpha)
-        Qmat = _filter_jtx6_Q(alpha, beta0)
+        Qmat = _filter_jtx6_Q(alpha, beta)
     elif ftype == FilterType.JTP6:
         Pmat = _filter_jtp6_P(alpha, beta)
         Qmat = _filter_jtx6_Q(alpha, beta)
     elif ftype == FilterType.JTT8:
         Pmat = _filter_jtt8_P(alpha)
-        Qmat = _filter_jtx8_Q(alpha, beta0)
+        Qmat = _filter_jtx8_Q(alpha, beta)
     elif ftype == FilterType.JTP8:
         Pmat = _filter_jtp8_P(alpha, beta)
         Qmat = _filter_jtx8_Q(alpha, beta)
@@ -211,7 +369,9 @@ def build_filter(N: int, ftype: FilterType, alpha=0.0, beta=0.0):
         raise ValueError(f"Unsupported filter type: {ftype}")
 
     pbands = Pmat[2]
-    Px = construct_banded_matrix(N, pbands[0], pbands[1], Pmat[0], Pmat[1], Pmat[3])
+    Px = construct_banded_matrix_numba(
+        N, pbands[0], pbands[1], Pmat[0], Pmat[1], Pmat[3]
+    )
     P = full_to_banded(Px, pbands[0], pbands[1])
 
     qbands = Qmat[2]
@@ -220,35 +380,28 @@ def build_filter(N: int, ftype: FilterType, alpha=0.0, beta=0.0):
     return [P, pbands], [Q, qbands]
 
 
-def build_bh_filter(N: int, ftype: FilterType, r, rbh, dr, alpha=0.0, beta=0.0):
+@njit
+def build_bh_filter(N: int, ftype: FilterType, r, mask, filter_bounds, alpha, beta):
     """
     Build a filter for boundary handling based on the specified type and parameters.
     """
-    lambda0 = 1.0
-    lambda1 = 0.0
-    r0 = rbh - 2 * dr
-    r1 = rbh - dr
-    r2 = rbh + dr
-    r3 = rbh + 2 * dr
 
-    lamba = generalized_transition_profile(
-        r, lambda0, lambda1, r0, r1, r2, r3, method="linear"
-    )
-
-    P0mat, Q0mat = build_filter(N, ftype, alpha, beta)
+    P0mat, Q0mat = build_filter(N, ftype, filter_bounds, alpha, beta)
     p0bands = P0mat[1]
     q0bands = Q0mat[1]
-    P0 = P0mat[0]
+    P0b = P0mat[0]
+    P0 = banded_to_full_slow(P0b, p0bands[0], p0bands[1], N, N)
     Q0 = Q0mat[0]
-    Qi = np.identity(N, dtype=np.float64)
-    # Pi = full_to_banded(Qi, p0bands[0], p0bands[1])
 
-    Pa = banded_to_full_slow(P0, p0bands[0], p0bands[1], N, N)
+    Ident = np.identity(N, dtype=np.float64)
+    P0f = banded_to_full_slow(P0, p0bands[0], p0bands[1], N, N)
     P = np.zeros((N, N), dtype=np.float64)
     Q = np.zeros((N, N), dtype=np.float64)
+
     for i in range(N):
-        P[i, :] = lamba[i] * Pa[i, :] + (1 - lamba[i]) * Qi[i, :]
-        Q[i, :] = lamba[i] * Q0[i, :] + (1 - lamba[i]) * Qi[i, :]
+        for j in range(N):
+            P[i, j] = mask[i] * P0f[i, j] + (1 - mask[i]) * Ident[i, j]
+            Q[i, j] = mask[i] * Q0[i, j] + (1 - mask[i]) * Ident[i, j]
 
     Pb = full_to_banded(P, p0bands[0], p0bands[1])
 

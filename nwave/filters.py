@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
+from numba import njit
 from enum import Enum
 from . types import *
 
@@ -69,6 +70,7 @@ class KreissOligerFilterO6_1D(Filter1D):
     def get_sigma(self):
         return self.sigma
 
+    @njit
     def filter(self, u):
         du = np.zeros_like(u)
 
@@ -151,6 +153,7 @@ class KreissOligerFilterO8_1D(Filter1D):
     def get_sigma(self):
         return self.sigma
 
+    @njit
     def filter(self, u):
         du = np.zeros_like(u)
 

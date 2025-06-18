@@ -1,17 +1,5 @@
 from enum import Enum
 
-CompactFilterTypes = [
-    "JTT4",
-    "JTT6",
-    "JTP6",
-    "JTT8",
-    "JTP8",
-    "KP4",
-    "DSQ61",
-    "ME44",
-    "ME642",
-]
-
 
 class BCType(Enum):
     """
@@ -88,3 +76,21 @@ class CFDSolve(Enum):
     PENTAPY = 3
     D_INV = 4
     D_LU = 5
+
+
+filter_type_map = {
+    "None": FilterType.NONE,
+    "JTT4": FilterType.JTT4,
+    "JTT6": FilterType.JTT6,
+    "JTP6": FilterType.JTP6,
+    "JTT8": FilterType.JTT8,
+    "JTP8": FilterType.JTP6,
+    "KP4": FilterType.KP4,
+}
+
+filter_apply_map = {
+    "Vars": FilterApply.APPLY_VARS,
+    "Derivs": FilterApply.APPLY_DERIVS,
+    "Rhs": FilterApply.RHS,
+    "None": FilterApply.NONE,
+}
