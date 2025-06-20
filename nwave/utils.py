@@ -202,6 +202,17 @@ def l2norm(u):
     """
     return np.sqrt(np.sum(u**2) / u.size)
 
+@njit
+def l2norm_mask(u, dx, mask):
+    """
+    Compute the L2 norm of an array.
+    """
+    sum = 0.0
+    for i in range(len(u)):
+        if mask[i] > 0.5:
+            sum += dx * u[i]**2
+    
+    return np.sqrt(sum)
 
 def smooth_transition(s, method):
     """
@@ -325,3 +336,30 @@ def construct_banded_matrix_numba(N, kl, ku, coeffs, bcoeffs, parity):
                     A[i, j] = coeffs[offset + kl]
 
     return A
+
+def linear_interpolation(f, x, x0):
+    """
+    Perform linear interpolation for the value of f at x0 given arrays f and x.
+
+    Parameters
+    ----------
+    f : array_like
+        Array of function values.
+    x : array_like
+        Array of x values (must be sorted in ascending order).
+    x0 : float
+        The x value at which to interpolate.
+
+    Returns
+    -------
+    float
+        Interpolated value f(x0).
+    """
+    if x0 <= x[0]:
+        return f[0]
+    if x0 >= x[-1]:
+        return f[-1]
+    idx = np.searchsorted(x, x0) - 1
+    x1, x2 = x[idx], x[idx + 1]
+    f1, f2 = f[idx], f[idx + 1]
+    return f1 + (f2 - f1) * (x0 - x1) / (x2 - x1)

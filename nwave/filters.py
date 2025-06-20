@@ -70,13 +70,19 @@ class KreissOligerFilterO6_1D(Filter1D):
     def get_sigma(self):
         return self.sigma
 
-    @njit
     def filter(self, u):
         du = np.zeros_like(u)
 
         # Kreiss-Oliger filter in x direction
         dx = self.dx
         sigma = self.sigma
+        fbound = self.filter_boundary
+        self._apply_ko6_filter(du, u, dx, sigma, fbound)
+        return du
+
+    @staticmethod
+    @njit
+    def _apply_ko6_filter(du : np.ndarray, u : np.ndarray, dx : float, sigma : float, filter_boundary : bool):
         factor = sigma / (64.0 * dx)
 
         # centered stencil
@@ -90,7 +96,7 @@ class KreissOligerFilterO6_1D(Filter1D):
             + u[6:]
         )
 
-        if self.filter_boundary:
+        if filter_boundary:
             smr3 = 9.0 / 48.0 * 64 * dx
             smr2 = 43.0 / 48.0 * 64 * dx
             smr1 = 49.0 / 48.0 * 64 * dx
@@ -134,8 +140,6 @@ class KreissOligerFilterO6_1D(Filter1D):
             )
             du[-1] = sigma * (u[-4] - 3.0 * u[-3] + 3.0 * u[-2] - u[-1]) / spr3
 
-        return du
-
 
 class KreissOligerFilterO8_1D(Filter1D):
     """
@@ -153,13 +157,19 @@ class KreissOligerFilterO8_1D(Filter1D):
     def get_sigma(self):
         return self.sigma
 
-    @njit
     def filter(self, u):
         du = np.zeros_like(u)
 
-        # Kreiss-Oliger filter in x direction
         dx = self.dx
-        sigma = self.sigma
+        sigma = self.sigma  
+        fbounds =  self.filter_boundary
+        self._apply_ko8_filter(du, u, dx, sigma, fbounds)
+        return du
+
+    @staticmethod
+    @njit
+    def _apply_ko8_filter(du : np.ndarray, u : np.ndarray, dx : float, sigma : float, filter_boundary : bool):
+        # Kreiss-Oliger filter in x direction
         factor = -sigma / (256.0 * dx)
 
         # centered stencil
@@ -175,7 +185,7 @@ class KreissOligerFilterO8_1D(Filter1D):
             + u[8:]
         )
 
-        if self.filter_boundary:
+        if filter_boundary:
             smr4 = 17.0 / 48.0 * 256 * dx
             smr3 = 59.0 / 48.0 * 256 * dx
             smr2 = 43.0 / 48.0 * 256 * dx
@@ -237,7 +247,6 @@ class KreissOligerFilterO8_1D(Filter1D):
                 / spr1
             )
 
-        return du
 
 
 """

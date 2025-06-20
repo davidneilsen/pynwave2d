@@ -75,6 +75,14 @@ def write_curve2(filename, time, x, eqs):
             for xi, di in zip(rr, ff):
                 f.write(f"{xi:.8e} {di:.8e}\n")
 
+def write_curve_file(filename, uname, time, x, u):
+    with open(filename, "w") as f:
+        f.write(f"# TIME {time}\n")
+        f.write(f"# {uname}\n")
+        for xi, ui in zip(x, u):
+            f.write(f"{xi:.8e} {ui:.8e}\n")
+
+
 def get_filter_type(filter_str):
     try:
         return filter_type_map[filter_str]
@@ -190,17 +198,27 @@ def main(parfile):
     Nt = params["Nt"]
 
     eqs.cal_constraints(eqs.u, g)
+    rbh_guess = 0.7
+    rbh, mbh, rTheta = eqs.find_horizon(g, rbh_guess)
+    if rbh == None:
+        rbh  = 0.0
+        mbh  = 0.0
+    eqs.set_ah(rbh, mbh)
+    print(f"Horizon(s) found at {rbh:03f} with masses {mbh:03f}")
+
     step = 0
     fname = f"{output_dir}/bssn_{step:04d}.curve"
     write_curve(fname, 0.0, g.xi[0], eqs)
+    fname = f"{output_dir}/rtheta_{step:04d}.curve"
+    write_curve_file(fname, "rTheta", time, g.xi[0], rTheta)
 
     # Create a CSV file for constraint norms
     conname = f"{output_dir}/bssn_constraints.dat"
     confile = open(conname, mode="w", newline="")
     writer = csv.writer(confile)
-    writer.writerow(["time", "Ham", "Mom"])
+    writer.writerow(["time", "Ham", "Mom", "radius_bh", "mass_bh"])
     writer.writerow(
-        [time, l2norm(eqs.C[0][nghost:-nghost]), l2norm(eqs.C[1][nghost:-nghost])]
+        [time, l2norm(eqs.C[0][nghost:-nghost]), l2norm(eqs.C[1][nghost:-nghost]), rbh, mbh]
     )
 
     filvar = None
@@ -222,13 +240,23 @@ def main(parfile):
         time += dt
         if i % print_interval == 0 or i % output_interval == 0:
             eqs.cal_constraints(eqs.u, g)
+            rbh_guess = rbh
+            rbh, mbh, rTheta = eqs.find_horizon(g, rbh_guess)
+            if rbh == None:
+                rbh  = 0.0
+                mbh  = 0.0
+            eqs.set_ah(rbh, mbh)
+            print(f"Horizon(s) found at {rbh:.03f} with masses {mbh:03f}.")
+            fname = f"{output_dir}/rtheta_{i:04d}.curve"
+            write_curve_file(fname, "rTheta", time, g.xi[0], rTheta)
         if i % print_interval == 0:
             hamnorm = l2norm(eqs.C[0][nghost:-nghost])
             momnorm = l2norm(eqs.C[1][nghost:-nghost])
             print(
                 f"Step {i:d}, t={time:.2e}, |chi|={l2norm(eqs.u[0]):.2e}, |grr|={l2norm(eqs.u[1]):.2e}, |gtt|={l2norm(eqs.u[2]):.2e}, |Arr|={l2norm(eqs.u[3]):.2e}, |K|={l2norm(eqs.u[4]):.2e}, |Gt|={l2norm(eqs.u[5]):.2e}, |alpha|={l2norm(eqs.u[6]):.2e}, |beta|={l2norm(eqs.u[7]):.2e}, |gB|={l2norm(eqs.u[8]):.2e}, |Ham|={hamnorm:.2e}, |Mom|={momnorm:.2e}"
             )
-            writer.writerow([time, hamnorm, momnorm])
+            rbh, mbh = eqs.get_ah()
+            writer.writerow([time, hamnorm, momnorm, rbh, mbh])
         if i % output_interval == 0:
             fname = f"{output_dir}/bssn_{i:04d}.curve"
             write_curve(fname, time, g.xi[0], eqs)

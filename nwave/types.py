@@ -80,6 +80,8 @@ class CFDSolve(Enum):
 
 filter_type_map = {
     "None": FilterType.NONE,
+    "KO6": FilterType.KREISS_OLIGER_O6,
+    "KO8": FilterType.KREISS_OLIGER_O8,
     "JTT4": FilterType.JTT4,
     "JTT6": FilterType.JTT6,
     "JTP6": FilterType.JTP6,

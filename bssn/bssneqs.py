@@ -78,6 +78,8 @@ class BSSN(Equations):
         self.M = M
         self.extended_domain = extended_domain
         self.have_d2 = have_d2
+        self.r_horizon = 0.5 * M
+        self.M_horizon = M
 
         self.U_CHI = 0
         self.U_GRR = 1
@@ -122,6 +124,19 @@ class BSSN(Equations):
             0,
             0,
         ]  # alpha, beta, gB
+
+    def get_r_horizon(self):
+        return self.r_horizon
+
+    def get_mass_horizon(self):
+        return self.M_horizon
+
+    def get_ah(self):
+        return self.r_horizon, self.M_horizon
+
+    def set_ah(self, rbh, mbh):
+        self.r_horizon = rbh
+        self.M_horizon = mbh
 
     def initialize(self, g: Grid, params):
         """
@@ -231,7 +246,7 @@ class BSSN(Equations):
             for fx in g.Filter:
                 if fx.apply_filter == FilterApply.APPLY_DERIVS:
                     filrhs = fx
-        
+
         if filrhs is not None:
             f_alpha = filrhs.filter(alpha)
             f_beta_r = filrhs.filter(beta_r)
@@ -746,7 +761,7 @@ class BSSN(Equations):
             ed_K = ED1.grad(K)
             ed2_chi = ED2.grad2(chi)
             ed2_g_tt = ED2.grad2(g_tt)
-            print(f"...D1(chi):  {l2norm(d_chi - ed_chi):.2e}") 
+            print(f"...D1(chi):  {l2norm(d_chi - ed_chi):.2e}")
             print(f"...D1(g_rr): {l2norm(d_g_rr - ed_g_rr):.2e}")
             print(f"...D1(g_tt): {l2norm(d_g_tt - ed_g_tt):.2e}")
             print(f"...D1(A_rr): {l2norm(d_A_rr - ed_A_rr):.2e}")
@@ -778,7 +793,7 @@ class BSSN(Equations):
         Apply Sommerfeld boundary conditions at the outer boundary.
         """
         if n_falloff < 0:
-            u_inf = r[-1]**(abs(n_falloff))
+            u_inf = r[-1] ** (abs(n_falloff))
 
         dtu[-ng:] = -dxu[-ng:] - n_falloff * (u[-ng:] - u_inf) / r[-ng:]
         if extended_domain:
@@ -831,6 +846,94 @@ class BSSN(Equations):
         )
 
         Gamcon[:] = -0.5 * d_g_rr * inv_g_rr2 + Gamma_r + d_g_tt * inv_g_rr * inv_g_tt
+
+    def find_horizon(self, g: Grid, r0):
+        if r0 == None:
+            r0 = 1.0
+
+        r = g.xi[0]
+        N = len(r)
+        chi = self.u[self.U_CHI]
+        g_rr = self.u[self.U_GRR]
+        g_tt = self.u[self.U_GTT]
+        A_rr = self.u[self.U_ARR]
+        K = self.u[self.U_K]
+
+        d_chi = g.D1.grad(chi)
+        d_g_tt = g.D1.grad(g_tt)
+
+        # Calculate the null-ray expansion.
+        rTheta = np.zeros_like(chi)
+        for i in range(N):
+            A_tt = -A_rr[i] * g_tt[i] / (2.0 * g_rr[i])
+            d_phi = -d_chi[i] / (4.0 * chi[i])
+            e2p = 1.0 / np.sqrt(chi[i])
+            Kbar_tt = A_tt + g_tt[i] * K[i] / 3.0
+            rTheta[i] = np.abs(r[i]) * (
+                (4.0 * g_tt[i] * d_phi + d_g_tt[i]) / (e2p * g_tt[i] * np.sqrt(g_rr[i]))
+                - 2.0 * Kbar_tt / g_tt[i]
+            )
+
+        # Find location of the horizon--march from the outside.
+        rin = 0.25 * r0
+        rout = 4.0 * r0
+        rh = find_ah_zero(rTheta, r, rin, rout)
+        if rh != None:
+            gtt_h = linear_interpolation(g_tt, r, rh)
+            chi_h = linear_interpolation(chi, r, rh)
+            area_h = 4.0 * np.pi * gtt_h / chi_h
+            mass_h = np.sqrt(area_h / (16.0 * np.pi))
+        else:
+            mass_h = None
+
+        return rh, mass_h, rTheta
+
+
+@njit
+def find_ah_zero(f: np.ndarray, x: np.ndarray, x1: float, x2: float):
+    """
+    Find zero of the function f, moving from the outer part of the grid.
+    This is written for finding the apparent horizon from the null-ray expansion.
+
+    Parameters:
+        f = function to find zero
+        x =  coordinate array
+        x1 = lower bound of root
+        x2 = upper bound of root
+
+    Note:  The routine returns "None" if:
+       (1) the bounds are not on the grid,
+       (2) no root of f is found
+    """
+
+    xmin = x[0]
+    xmax = x[-1]
+    if not (xmin <= x1 <= xmax) or not (xmin <= x2 <= xmax):
+        print(f"...find_ah_zero: x1={x1} and x2={x2} are out of range.")
+        return None
+
+    dx = x[1] - x[0]
+    k1 = int((x1 - xmin) / dx)
+    k2 = int((x2 - xmin) / dx)
+    if abs(x1) > abs(x2):
+        kout, kin = k1, k2
+        xout, xin = x1, x2
+    else:
+        kout, kin = k2, k1
+        xout, xin = x2, x1
+    if xout > xin:
+        for k in range(kout, kin, -1):
+            if f[k] * f[k - 1] < 0:
+                # Linear interpolation for zero crossing
+                xzero = x[k] - f[k] * (x[k] - x[k - 1]) / (f[k] - f[k - 1])
+                return xzero
+    else:
+        for k in range(kout, kin):
+            if f[k] * f[k + 1] < 0:
+                # Linear interpolation for zero crossing
+                xzero = x[k] - f[k] * (x[k] - x[k + 1]) / (f[k] - f[k + 1])
+                return xzero
+    return None
 
 
 def extrapolate_func(u, order=4):
