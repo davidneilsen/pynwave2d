@@ -96,3 +96,42 @@ filter_apply_map = {
     "Rhs": FilterApply.RHS,
     "None": FilterApply.NONE,
 }
+
+d1_type_map  = {
+    "E4": DerivType.D1_DE4,
+    "E44": DerivType.D1_DE4,
+    "E6": DerivType.D1_E642,
+    "E642": DerivType.D1_E642,
+    "JT4": DerivType.D1_JT4,
+    "JT6": DerivType.D1_JT6,
+    "JP6": DerivType.D1_JP6,
+    "KP4": DerivType.D1_KP4,
+    "DSQ6A": DerivType.D1_DSQ6A,
+    "DSQ6B": DerivType.D1_DSQ6B,
+    "DSQ6B": DerivType.D1_DSQ6B,
+    "ME44": DerivType.D1_ME44,
+    "ME642": DerivType.D1_ME642,
+}
+
+d2_type_map = {
+    "E4": DerivType.D2_E44,
+    "E44": DerivType.D2_E44,
+    "E6": DerivType.D2_E642,
+    "E642": DerivType.D2_E642,
+    "JT4": DerivType.D2_JT4,
+    "JT6": DerivType.D2_JT6,
+    "JP6": DerivType.D2_JP6,
+    "DSQ6A": DerivType.D2_DSQ6A,
+    "DSQ6B": DerivType.D2_DSQ6B,
+    "DSQ6B": DerivType.D2_DSQ6B,
+    "ME44": DerivType.D2_ME44,
+    "ME642": DerivType.D2_ME642,
+}
+
+cfd_solve_map = {
+    "SCIPY": CFDSolve.SCIPY,
+    "LUSOLVE": CFDSolve.LUSOLVE,
+    "D_INV": CFDSolve.D_INV,
+    "D_LU": CFDSolve.D_LU,
+    "PENTAPY": CFDSolve.PENTAPY,
+}

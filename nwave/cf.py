@@ -82,7 +82,8 @@ class NCompactFilter(Filter1D):
         apply_filter: FilterApply,
         method: CFDSolve,
         frequency: int,
-        rbh,
+        mask_pos,
+        mask_width,
         filter_bounds,
         alpha,
         beta=0.0,
@@ -93,10 +94,10 @@ class NCompactFilter(Filter1D):
 
         mask0 = 1.0
         maskBH = 0.0
-        r0 = rbh - 2 * dr
-        r1 = rbh - dr
-        r2 = rbh + dr
-        r3 = rbh + 2 * dr
+        r0 = mask_pos - 2 * mask_width
+        r1 = mask_pos - mask_width
+        r2 = mask_pos + mask_width
+        r3 = mask_pos + 2 * mask_width
         mask = generalized_transition_profile(
             r, mask0, maskBH, r0, r1, r2, r3, method="tanh"
         )

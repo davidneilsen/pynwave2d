@@ -125,8 +125,13 @@ class Grid1D(Grid):
         self.D2 = d2
 
     def set_filter(self, filter: fi.Filter1D):
-        self.num_filters += 1
-        self.Filter.append(filter)
+        if isinstance(filter, list):
+            for f in filter:
+                self.num_filters += 1
+                self.Filter.append(f)
+        else:
+            self.num_filters += 1
+            self.Filter.append(filter)
 
 
 class Grid2D(Grid):

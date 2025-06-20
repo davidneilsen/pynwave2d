@@ -147,6 +147,12 @@ class NCompactDerivative:
         Pmat, Qmat = build_derivative(N, dtype)
         return cls(N, dtype, method, Pmat, Qmat, denom)
 
+    def get_type(self):
+        return self.dtype
+
+    def get_method(self):
+        return self.method
+
     def get_P(self) -> np.ndarray:
         """
         Get the P matrix.

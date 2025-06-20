@@ -34,10 +34,6 @@ def verify_params(params):
         raise ValueError("output_interval must be greater than print_interval")
     if params["output_dir"] == "":
         raise ValueError("output_dir must be a non-empty string")
-    if params["D1"] not in ["E4", "E6", "JP6", "KP4"]:
-        raise ValueError("D1 must be one of {E4, E6, JP6, KP4}")
-    if params["D2"] not in ["E4", "E6", "JP6"]:
-        raise ValueError("D2 must be one of {E4, E6, JP6}")
     if params["Mass"] <= 0.0:
         raise ValueError("Mass must be positive")
     if params["eta"] < 1.0:
@@ -82,7 +78,6 @@ def write_curve_file(filename, uname, time, x, u):
         for xi, ui in zip(x, u):
             f.write(f"{xi:.8e} {ui:.8e}\n")
 
-
 def get_filter_type(filter_str):
     try:
         return filter_type_map[filter_str]
@@ -94,6 +89,143 @@ def get_filter_apply(filter_str):
         return filter_apply_map[filter_str]
     except KeyError:
         raise ValueError(f"Unknown filter apply string: '{filter_str}'")
+
+def get_d1_type(d_str):
+    try:
+        return d1_type_map[d_str]
+    except KeyError:
+        raise ValueError(f"Unknown D1 type string: '{d_str}'")
+
+def get_d2_type(d_str):
+    try:
+        return d2_type_map[d_str]
+    except KeyError:
+        raise ValueError(f"Unknown D2 type string: '{d_str}'")
+
+def get_cfd_solve(d_str):
+    try:
+        return cfd_solve_map[d_str]
+    except KeyError:
+        raise ValueError(f"Unknown Deriv Solve type string: '{d_str}'")
+
+
+def init_derivative_operators(r, params):
+    d1_param = params["D1"]
+    # Check if d1 is a string or a list of strings
+    if isinstance(d1_param, str):
+        d1_list = [d1_param]
+    elif isinstance(d1_param, list) and all(isinstance(item, str) for item in d1_param):
+        d1_list = d1_param
+    else:
+        raise TypeError("D1 must be a string or a list of strings")
+
+    d2_param = params["D2"]
+    # Check if d2 is a string or a list of strings
+    if isinstance(d2_param, str):
+        d2_list = [d2_param]
+    elif isinstance(d2_param, list) and all(isinstance(item, str) for item in d2_param):
+        d2_list = d2_param
+    else:
+        raise TypeError("D2 must be a string or a list of strings")
+
+    method_str = params.get("DerivSolveMethod", "SCIPY")
+    method = get_cfd_solve(method_str)
+    mask_bh = params.get("BHMask", False)
+
+    if mask_bh and len(d1_list) != 2:
+        raise TypeError("D1 must be a list of two operators for BHMask")
+
+    dr = r[1] - r[0]
+    if len(d1_list) >= 1:
+        d1type = get_d1_type(d1_list[0])
+        if d1type  == DerivType.D1_E44:
+            D1 = ExplicitFirst44_1D(dr)
+        elif d1type == DerivType.D1_E642:
+            D1 = ExplicitFirst642_1D(dr)
+        elif d1type in CompactFirstDerivatives:
+            D1 = NCompactDerivative.deriv(r, d1type, method)
+        else:
+            raise NotImplementedError("D1 Type = {d1type}")
+        
+        d2type = get_d2_type(d2_list[0])
+        if d2type == DerivType.D2_E44:
+            D2 = ExplicitSecond44_1D(dr)
+        elif d2type == DerivType.D2_E642:
+            D2 = ExplicitSecond642_1D(dr)
+        elif d2type in CompactSecondDerivatives:
+            D2 = NCompactDerivative.deriv(r, d2type, method)
+        else:
+            raise NotImplementedError("D2 Type = {d2type}")
+
+    elif mask_bh:
+        rbh = params.get("BHMaskPos", 0.0)
+        rbh_width = params.get("BHMaskWidth", 0.1)
+        d1_0_type = get_d1_type(d1_list[0])
+        d1_bh_type = get_d1_type(d1_list[1])
+        if d1_0_type and d1_bh_type in CompactFirstDerivatives:
+            D1 = NCompactDerivative.bh_deriv(r, d1_0_type, d1_bh_type, method, rbh, rbh_width)
+        else:
+            raise TypeError("Invalid FIRST derivative types for masking")
+
+        d2_0_type = get_d2_type(d2_list[0])
+        d2_bh_type = get_d2_type(d2_list[1])
+        if d2_0_type and d2_bh_type in CompactSecondDerivatives:
+            D2 = NCompactDerivative.bh_deriv(r, d2_0_type, d2_bh_type, method, rbh, rbh_width)
+        else:
+            raise TypeError("Invalid SECOND derivative types for masking")
+    else:
+        raise RuntimeError("Failed to initialize derivative operators: D1 and D2 are unbound.")
+
+    return D1, D2
+
+def init_filter(r, params):
+    f_param = params.get("Filter", "None")
+
+    if isinstance(f_param, str):
+        fparam_list = [f_param]
+    elif isinstance(f_param, list) and all(isinstance(item, str) for item in f_param):
+        fparam_list = f_param
+    else:
+        raise TypeError("Filter must be a string or a list of strings")
+
+    filters = []
+    mask_bh = params.get("BHMask", False)
+
+    for fstr in fparam_list:
+        ftype = get_filter_type(fstr)
+        if ftype == FilterType.KREISS_OLIGER_O6:
+            sigma = params.get("FilterKOsigma", 0.1)
+            fbounds = params.get("FilterBoundary", False)
+            dr = r[1] - r[0]
+            bssn_filter = KreissOligerFilterO6_1D(dr, sigma, filter_boundary=fbounds)
+            filters.append(bssn_filter)
+        elif ftype == FilterType.KREISS_OLIGER_O8:
+            sigma = params.get("FilterKOsigma", 0.1)
+            fbounds = params.get("FilterBoundary", False)
+            dr = r[1] - r[0]
+            bssn_filter = KreissOligerFilterO8_1D(dr, sigma, filter_boundary=fbounds)
+            filters.append(bssn_filter)
+        elif ftype in CompactFilterTypes:
+            fapply = get_filter_apply(params.get("FilterApply", FilterApply.APPLY_VARS))
+            fmethod = CFDSolve.SCIPY
+            fbounds = params.get("FilterBoundary", False)
+            ffreq = params.get("FilterFrequency", 1)
+            alpha = params.get("FilterAlpha", 0.0)
+            beta = params.get("FilterBeta", 0.0)
+            if mask_bh:
+                mask_pos = params.get("BHMaskPos", 0.0)
+                mask_width = params.get("BHMaskWidth", 0.1)
+                bssn_filter = NCompactFilter.init_bh_filter(r, ftype, fapply, fmethod, ffreq, mask_pos, mask_width, fbounds, alpha, beta)
+                filters.append(bssn_filter)
+            else:
+                bssn_filter = NCompactFilter.init_filter(r, ftype, fapply, fmethod, ffreq, fbounds, alpha, beta)
+                filters.append(bssn_filter)
+        elif ftype == FilterType.NONE:
+            pass
+        else:
+            raise NotImplementedError("Filter = { KO6, KO8, JTT6, JTP6, JTT8, JTP8, KP4 }")
+    return filters
+
 
 def main(parfile):
     # Read parameters
@@ -119,64 +251,19 @@ def main(parfile):
 
     r = g.xi[0]
     dr = g.dx[0]
-    if params["D1"] == "E4":
-        D1 = ExplicitFirst44_1D(dr)
-        g.set_D1(D1)
-    elif params["D1"] == "E6":
-        D1 = ExplicitFirst642_1D(dr)
-        g.set_D1(D1)
-    elif params["D1"] == "JP6":
-        D1 = CompactFirst1D(r, DerivType.D1_JP6, CFDSolve.LUSOLVE)
-        #D1 = CompactFirst1D(r, DerivType.D1_JP6, CFDSolve.D_LU)
-        g.set_D1(D1)
-    elif params["D1"] == "KP4":
-        D1 = CompactFirst1D(r, DerivType.D1_KP4, CFDSolve.LUSOLVE)
-        g.set_D1(D1)
-    else:
-        raise NotImplementedError("D1 = { E4, E6, JP6, KP4 }")
 
-    if params["D2"] == "E4":
-        D2 = ExplicitSecond44_1D(dr)
-        g.set_D2(D2)
-    elif params["D2"] == "E6":
-        D2 = ExplicitSecond642_1D(dr)
-        g.set_D2(D2)
-    elif params["D2"] == "JP6":
-        D2 = CompactSecond1D(r, DerivType.D2_JP6, CFDSolve.LUSOLVE)
-        #D2 = CompactSecond1D(r, DerivType.D2_JP6, CFDSolve.D_LU)
-        g.set_D2(D2)
-    else:
-        raise NotImplementedError("D2 = { E4, E6, JP6 }")
+    D1, D2 = init_derivative_operators(r, params)
+    g.set_D1(D1)
+    g.set_D2(D2)
 
-    filter_str = params.get("Filter", "None")
-    ftype = get_filter_type(filter_str)
-    if ftype == FilterType.KREISS_OLIGER_O6:
-        sigma = params.get("FilterKOsigma", 0.1)
-        fbounds = params.get("FilterBoundary", False)
-        bssn_filter = KreissOligerFilterO6_1D(dr, sigma, filter_boundary=fbounds)
-        g.set_filter(bssn_filter)
-    elif ftype == FilterType.KREISS_OLIGER_O8:
-        sigma = params.get("FilterKOsigma", 0.1)
-        fbounds = params.get("FilterBoundary", False)
-        bssn_filter = KreissOligerFilterO8_1D(dr, sigma, filter_boundary=fbounds)
-        g.set_filter(bssn_filter)
-    elif ftype in CompactFilterTypes:
-        fapply = get_filter_apply(params.get("FilterApply", FilterApply.APPLY_VARS))
-        fmethod = CFDSolve.SCIPY
-        fbounds = params.get("FilterBoundary", False)
-        ffreq = params.get("FilterFrequency", 1)
-        alpha = params.get("FilterAlpha", 0.0)
-        beta = params.get("FilterBeta", 0.0)
-        bssn_filter = NCompactFilter.init_filter(r, ftype, fapply, fmethod, ffreq, fbounds, alpha, beta)
-        g.set_filter(bssn_filter)
-    elif ftype == FilterType.NONE:
-        pass
-    else:
-        raise NotImplementedError("Filter = { KO6, KO8, JTT6, JTP6, JTT8, JTP8, KP4 }")
+    F1 = init_filter(r, params)
+    g.set_filter(F1)
 
     if g.num_filters > 0:
-        print(f"Filter type: {g.Filter[0].get_filter_type()}")
-        print(f"Filter apply: {g.Filter[0].get_apply_filter()}")
+        for f in g.Filter:
+            print(f"f type = {type(f)}")
+            print(f"Filter type: {f.get_filter_type()}")
+            print(f"Filter apply: {f.get_apply_filter()}")
 
     # GBSSN system: (sys, lapse advection, shift advection)
     #    sys = 0 (Eulerian), 1 (Lagrangian)
@@ -228,6 +315,7 @@ def main(parfile):
             if fx.get_apply_filter == FilterApply.APPLY_VARS:
                 filvar = fx
                 filter_frequency = fx.get_frequency()
+                break
 
     for i in range(1, Nt + 1):
         rk4.step(eqs, g, dt)
