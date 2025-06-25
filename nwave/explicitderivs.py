@@ -93,7 +93,7 @@ class ExplicitSecond44_1D(SecondDerivative1D):
     def get_type(self):
         return self.type
 
-    def grad2(self, u):
+    def grad(self, u):
         idx_sqrd = 1.0 / self.dx**2
         idx_sqrd_by_12 = idx_sqrd / 12.0
 
@@ -255,7 +255,7 @@ class ExplicitSecond642_1D(SecondDerivative1D):
     def get_type(self):
         return self.type
 
-    def grad2(self, u):
+    def grad(self, u):
         dxxu = np.zeros_like(u)
 
         idx_sqrd = 1.00 / (self.dx * self.dx)

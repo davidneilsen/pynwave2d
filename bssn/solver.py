@@ -41,7 +41,7 @@ def verify_params(params):
 
 
 def write_curve(filename, time, x, eqs):
-    constraint_names = ["Ham", "Mom"]
+
     with open(filename, "w") as f:
         f.write(f"# TIME {time}\n")
         for m in range(len(eqs.u_names)):
@@ -54,29 +54,34 @@ def write_curve(filename, time, x, eqs):
                 f.write(f"{xi:.8e} {di:.8e}\n")
 
 
-def write_curve2(filename, time, x, eqs):
-    nghosts = 4
+def write_curve_masked(filename, time, x, eqs, mask):
+    umask = np.empty_like(x)
     with open(filename, "w") as f:
         f.write(f"# TIME {time}\n")
         for m in range(len(eqs.u_names)):
             f.write(f"# {eqs.u_names[m]}\n")
-            rr = np.log(x[nghosts:-nghosts])
-            ff = eqs.u[m][nghosts:-nghosts]
-            for xi, di in zip(rr, ff):
+            umask[:] = eqs.u[m][:] * mask[:]
+            for xi, di in zip(x, umask):
                 f.write(f"{xi:.8e} {di:.8e}\n")
         for m in range(len(eqs.c_names)):
             f.write(f"# {eqs.c_names[m]}\n")
-            rr = np.log(x[nghosts:-nghosts])
-            ff = eqs.C[m][nghosts:-nghosts]
-            for xi, di in zip(rr, ff):
+            umask[:] = eqs.C[m][:] * mask[:]
+            for xi, di in zip(rr, umask):
                 f.write(f"{xi:.8e} {di:.8e}\n")
 
-def write_curve_file(filename, uname, time, x, u):
+
+def write_curve_function(filename, namelist, time, x, ulist):
+    """
+    Write a list of functions (ulist) to a curve file.
+    The function names are in the list (namelist).
+    """
     with open(filename, "w") as f:
         f.write(f"# TIME {time}\n")
-        f.write(f"# {uname}\n")
-        for xi, ui in zip(x, u):
-            f.write(f"{xi:.8e} {ui:.8e}\n")
+        for uname, u in zip(namelist, ulist):
+            f.write(f"# {uname}\n")
+            for xpt, upt in zip(x, u):
+                f.write(f"{xpt:.8e} {upt:.8e}\n")
+
 
 def get_filter_type(filter_str):
     try:
@@ -84,11 +89,13 @@ def get_filter_type(filter_str):
     except KeyError:
         raise ValueError(f"Unknown filter type string: '{filter_str}'")
 
+
 def get_filter_apply(filter_str):
     try:
         return filter_apply_map[filter_str]
     except KeyError:
         raise ValueError(f"Unknown filter apply string: '{filter_str}'")
+
 
 def get_d1_type(d_str):
     try:
@@ -96,11 +103,13 @@ def get_d1_type(d_str):
     except KeyError:
         raise ValueError(f"Unknown D1 type string: '{d_str}'")
 
+
 def get_d2_type(d_str):
     try:
         return d2_type_map[d_str]
     except KeyError:
         raise ValueError(f"Unknown D2 type string: '{d_str}'")
+
 
 def get_cfd_solve(d_str):
     try:
@@ -128,17 +137,57 @@ def init_derivative_operators(r, params):
     else:
         raise TypeError("D2 must be a string or a list of strings")
 
-    method_str = params.get("DerivSolveMethod", "SCIPY")
+    method_str = params.get("DerivSolveMethod", "LUSOLVE")
     method = get_cfd_solve(method_str)
     mask_bh = params.get("BHMask", False)
 
     if mask_bh and len(d1_list) != 2:
         raise TypeError("D1 must be a list of two operators for BHMask")
 
+    print(f"init_derivative_operators>>  d1_param = {d1_param}")
+    print(f"init_derivative_operators>>  d2_param = {d2_param}")
+    print(f"init_derivative_operators>>  d1_list = {d1_list}")
+    print(f"init_derivative_operators>>  mask_bh  = {mask_bh}")
     dr = r[1] - r[0]
-    if len(d1_list) >= 1:
+
+    if mask_bh:
+        rbh = params.get("BHMaskPos", 0.0)
+        rbh_width = params.get("BHMaskWidth", 0.1)
+        d1_0_type = get_d1_type(d1_list[0])
+        d1_bh_type = get_d1_type(d1_list[1])
+        if d1_0_type and d1_bh_type in CompactFirstDerivatives:
+            print(
+                f"init_derivative_operators>> Setting BH Masked derivative for D1. Background type: {d1_0_type}, BH type: {d1_bh_type}"
+            )
+            print(
+                f"init_derivative_operators>> BH Mask. position: {rbh}, width: {rbh_width}"
+            )
+            D1 = NCompactDerivative.bh_deriv(
+                r, d1_0_type, d1_bh_type, method, rbh, rbh_width
+            )
+        else:
+            raise TypeError(
+                "init_derivative_operators>> Invalid FIRST derivative types for masking"
+            )
+
+        d2_0_type = get_d2_type(d2_list[0])
+        d2_bh_type = get_d2_type(d2_list[1])
+        if d2_0_type and d2_bh_type in CompactSecondDerivatives:
+            print(
+                f"init_derivative_operators>> Setting BH Masked derivative for D2. Background type: {d2_0_type}, BH type: {d2_bh_type}"
+            )
+            D2 = NCompactDerivative.bh_deriv(
+                r, d2_0_type, d2_bh_type, method, rbh, rbh_width
+            )
+        else:
+            raise TypeError(
+                "init_derivative_operators>> Invalid SECOND derivative types for masking"
+            )
+
+    elif len(d1_list) >= 1:
         d1type = get_d1_type(d1_list[0])
-        if d1type  == DerivType.D1_E44:
+        print(f"init_derivative_operators>> Setting D1 type: {d1type}")
+        if d1type == DerivType.D1_E44:
             D1 = ExplicitFirst44_1D(dr)
         elif d1type == DerivType.D1_E642:
             D1 = ExplicitFirst642_1D(dr)
@@ -146,8 +195,9 @@ def init_derivative_operators(r, params):
             D1 = NCompactDerivative.deriv(r, d1type, method)
         else:
             raise NotImplementedError("D1 Type = {d1type}")
-        
+
         d2type = get_d2_type(d2_list[0])
+        print(f"init_derivative_operators>>  Setting D2 type: {d2type}")
         if d2type == DerivType.D2_E44:
             D2 = ExplicitSecond44_1D(dr)
         elif d2type == DerivType.D2_E642:
@@ -156,27 +206,13 @@ def init_derivative_operators(r, params):
             D2 = NCompactDerivative.deriv(r, d2type, method)
         else:
             raise NotImplementedError("D2 Type = {d2type}")
-
-    elif mask_bh:
-        rbh = params.get("BHMaskPos", 0.0)
-        rbh_width = params.get("BHMaskWidth", 0.1)
-        d1_0_type = get_d1_type(d1_list[0])
-        d1_bh_type = get_d1_type(d1_list[1])
-        if d1_0_type and d1_bh_type in CompactFirstDerivatives:
-            D1 = NCompactDerivative.bh_deriv(r, d1_0_type, d1_bh_type, method, rbh, rbh_width)
-        else:
-            raise TypeError("Invalid FIRST derivative types for masking")
-
-        d2_0_type = get_d2_type(d2_list[0])
-        d2_bh_type = get_d2_type(d2_list[1])
-        if d2_0_type and d2_bh_type in CompactSecondDerivatives:
-            D2 = NCompactDerivative.bh_deriv(r, d2_0_type, d2_bh_type, method, rbh, rbh_width)
-        else:
-            raise TypeError("Invalid SECOND derivative types for masking")
     else:
-        raise RuntimeError("Failed to initialize derivative operators: D1 and D2 are unbound.")
+        raise RuntimeError(
+            "init_derivative_operators>> Failed to initialize derivative operators: D1 and D2 are unbound."
+        )
 
     return D1, D2
+
 
 def init_filter(r, params):
     f_param = params.get("Filter", "None")
@@ -186,7 +222,7 @@ def init_filter(r, params):
     elif isinstance(f_param, list) and all(isinstance(item, str) for item in f_param):
         fparam_list = f_param
     else:
-        raise TypeError("Filter must be a string or a list of strings")
+        raise TypeError("init_filter>>  Filter must be a string or a list of strings")
 
     filters = []
     mask_bh = params.get("BHMask", False)
@@ -215,15 +251,39 @@ def init_filter(r, params):
             if mask_bh:
                 mask_pos = params.get("BHMaskPos", 0.0)
                 mask_width = params.get("BHMaskWidth", 0.1)
-                bssn_filter = NCompactFilter.init_bh_filter(r, ftype, fapply, fmethod, ffreq, mask_pos, mask_width, fbounds, alpha, beta)
+                print(
+                    f"init_filter>> Creating BH masked filter: Background type: {ftype}, apply: {fapply}, method: {fmethod}"
+                )
+                print(
+                    f"init_derivative_operators>> BH Mask. position: {mask_pos}, width: {mask_width}"
+                )
+                bssn_filter = NCompactFilter.init_bh_filter(
+                    r,
+                    ftype,
+                    fapply,
+                    fmethod,
+                    ffreq,
+                    mask_pos,
+                    mask_width,
+                    fbounds,
+                    alpha,
+                    beta,
+                )
                 filters.append(bssn_filter)
             else:
-                bssn_filter = NCompactFilter.init_filter(r, ftype, fapply, fmethod, ffreq, fbounds, alpha, beta)
+                print(
+                    f"init_filter>> Creating filter: type: {ftype}, apply: {fapply}, method: {fmethod}"
+                )
+                bssn_filter = NCompactFilter.init_filter(
+                    r, ftype, fapply, fmethod, ffreq, fbounds, alpha, beta
+                )
                 filters.append(bssn_filter)
         elif ftype == FilterType.NONE:
             pass
         else:
-            raise NotImplementedError("Filter = { KO6, KO8, JTT6, JTP6, JTT8, JTP8, KP4 }")
+            raise NotImplementedError(
+                "init_filter>>  Filter = { KO6, KO8, JTT6, JTP6, JTT8, JTP8, KP4 }"
+            )
     return filters
 
 
@@ -251,10 +311,13 @@ def main(parfile):
 
     r = g.xi[0]
     dr = g.dx[0]
+    Nr = len(r)
 
     D1, D2 = init_derivative_operators(r, params)
     g.set_D1(D1)
     g.set_D2(D2)
+    print(f"D1 type: {g.D1.get_type()}")
+    print(f"D2 type: {g.D2.get_type()}")
 
     F1 = init_filter(r, params)
     g.set_filter(F1)
@@ -269,35 +332,43 @@ def main(parfile):
     #    sys = 0 (Eulerian), 1 (Lagrangian)
     sys = bssn.GBSSNSystem(1, 1, 1)
     eqs = bssn.BSSN(
-        g, params["Mass"], params["eta"], extended_domain, BCType.FUNCTION, sys, have_d2=True
+        g,
+        params["Mass"],
+        params["eta"],
+        extended_domain,
+        BCType.FUNCTION,
+        sys,
+        have_d2=True,
     )
     eqs.initialize(g, params)
 
     output_dir = params["output_dir"]
     output_interval = params["output_interval"]
     print_interval = params["print_interval"]
+
     os.makedirs(output_dir, exist_ok=True)
 
+    Nt = params["Nt"]
+    time = 0.0
     dt = params["cfl"] * dr
     rk4 = RK4(eqs, g)
-
-    time = 0.0
-    Nt = params["Nt"]
 
     eqs.cal_constraints(eqs.u, g)
     rbh_guess = 0.7
     rbh, mbh, rTheta = eqs.find_horizon(g, rbh_guess)
     if rbh == None:
-        rbh  = 0.0
-        mbh  = 0.0
+        rbh = 0.0
+        mbh = 0.0
     eqs.set_ah(rbh, mbh)
-    print(f"Horizon(s) found at {rbh:03f} with masses {mbh:03f}")
+    bhpts = int(rbh * len(r) / (r[-1] - r[0]))
+    print(f"Horizon(s) found at {rbh:03f} with masses {mbh:03f} and bhpts={bhpts:d}")
 
     step = 0
     fname = f"{output_dir}/bssn_{step:04d}.curve"
     write_curve(fname, 0.0, g.xi[0], eqs)
+
     fname = f"{output_dir}/rtheta_{step:04d}.curve"
-    write_curve_file(fname, "rTheta", time, g.xi[0], rTheta)
+    write_curve_function(fname, ["rTheta"], time, g.xi[0], [rTheta])
 
     # Create a CSV file for constraint norms
     conname = f"{output_dir}/bssn_constraints.dat"
@@ -305,7 +376,13 @@ def main(parfile):
     writer = csv.writer(confile)
     writer.writerow(["time", "Ham", "Mom", "radius_bh", "mass_bh"])
     writer.writerow(
-        [time, l2norm(eqs.C[0][nghost:-nghost]), l2norm(eqs.C[1][nghost:-nghost]), rbh, mbh]
+        [
+            time,
+            l2norm(eqs.C[0][nghost:-nghost]),
+            l2norm(eqs.C[1][nghost:-nghost]),
+            rbh,
+            mbh,
+        ]
     )
 
     filvar = None
@@ -331,12 +408,13 @@ def main(parfile):
             rbh_guess = rbh
             rbh, mbh, rTheta = eqs.find_horizon(g, rbh_guess)
             if rbh == None:
-                rbh  = 0.0
-                mbh  = 0.0
+                rbh = 0.0
+                mbh = 0.0
             eqs.set_ah(rbh, mbh)
-            print(f"Horizon(s) found at {rbh:.03f} with masses {mbh:03f}.")
-            fname = f"{output_dir}/rtheta_{i:04d}.curve"
-            write_curve_file(fname, "rTheta", time, g.xi[0], rTheta)
+            bhpts = int(rbh * len(r) / (r[-1] - r[0]))
+            print(
+                f"Horizon(s) found at {rbh:.03f} with masses {mbh:03f} and bhpts={bhpts:d}."
+            )
         if i % print_interval == 0:
             hamnorm = l2norm(eqs.C[0][nghost:-nghost])
             momnorm = l2norm(eqs.C[1][nghost:-nghost])
@@ -348,6 +426,9 @@ def main(parfile):
         if i % output_interval == 0:
             fname = f"{output_dir}/bssn_{i:04d}.curve"
             write_curve(fname, time, g.xi[0], eqs)
+            fname = f"{output_dir}/rtheta_{i:04d}.curve"
+            write_curve_function(fname, ["rTheta"], time, g.xi[0], [rTheta])
+
         if np.isnan(eqs.u[1]).any():
             print("Solution has a NaN.  Bye.")
             break

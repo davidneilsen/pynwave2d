@@ -26,7 +26,7 @@ class SecondDerivative1D(ABC):
         self.dx = dx
 
     @abstractmethod
-    def grad2(self, u) -> np.ndarray:
+    def grad(self, u) -> np.ndarray:
         raise NotImplementedError
 
 
@@ -89,7 +89,7 @@ class CompactSecond1D(SecondDerivative1D):
         self.Del = Del
         super().__init__(dx)
 
-    def grad2(self, u) -> np.ndarray:
+    def grad(self, u) -> np.ndarray:
         # Apply compact scheme row-wise (derivative in x)
         return np.asarray(self.Del.grad(u))
 

@@ -2,6 +2,7 @@ import numpy as np
 from numba import njit
 
 
+@njit
 def full_to_banded_slow(A, kl, ku):
     """
     This routine converts a banded matrix A to the LAPACK banded matrix
@@ -28,6 +29,7 @@ def full_to_banded_slow(A, kl, ku):
     return AB
 
 
+@njit
 def banded_to_full_slow(AB, kl, ku, M, N):
     """
     This routine converts a banded matrix in the LAPACK banded matrix
@@ -55,6 +57,7 @@ def banded_to_full_slow(AB, kl, ku, M, N):
     return A
 
 
+@njit
 def full_to_banded(A, kl, ku):
     """
     This routine converts a banded matrix A to the LAPACK banded matrix
@@ -82,7 +85,8 @@ def full_to_banded(A, kl, ku):
     return AB
 
 
-def banded_to_full(AB, kl, ku, M, N):
+@njit
+def banded_to_full(AB, kl, ku, M, N) -> np.ndarray:
     """
     This routine converts a banded matrix in the LAPACK banded matrix
     storage format, AB, to a full matrix A of dimension (M, N).
@@ -110,9 +114,25 @@ def banded_to_full(AB, kl, ku, M, N):
     return A
 
 
+@njit
 def construct_banded_matrix(N, kl, ku, coeffs, bcoeffs, parity):
     """
     Require boundary coefficients to be indexed from 0!
+
+    Parameters
+    ----------
+    N : int
+        The number of rows and columns in the matrix.
+    kl : int
+        The number of lower bands for the CENTER STENCIL, coeffs.
+    ku : int
+        The number of upper bands for the CENTER STENCIL, coeffs.
+    coeffs : array_like
+        Coefficients for the CENTER STENCIL, with length kl + ku + 1.
+    bcoeffs : array_like
+        Boundary coefficients for the top and bottom rows, with length p.
+    parity : int
+        Parity for the boundary coefficients, either 1 or -1.
     """
 
     assert kl == ku, "This function assumes kl == ku"
@@ -126,7 +146,6 @@ def construct_banded_matrix(N, kl, ku, coeffs, bcoeffs, parity):
             # Apply custom boundary coefficients at the top
             b = bcoeffs[i]
             m = len(b)
-            # start = max(0, i - (m // 2))
             start = 0
             end = min(N, start + m)
             A[i, start:end] = b
@@ -146,7 +165,6 @@ def construct_banded_matrix(N, kl, ku, coeffs, bcoeffs, parity):
             #    if 0 <= j < N:
             #        A[i, j] = coeffs[offset + kl]
             A[i, i - kl : i + ku + 1] = coeffs[:]
-
     return A
 
 
@@ -202,6 +220,7 @@ def l2norm(u):
     """
     return np.sqrt(np.sum(u**2) / u.size)
 
+
 @njit
 def l2norm_mask(u, dx, mask):
     """
@@ -210,9 +229,10 @@ def l2norm_mask(u, dx, mask):
     sum = 0.0
     for i in range(len(u)):
         if mask[i] > 0.5:
-            sum += dx * u[i]**2
-    
+            sum += dx * u[i] ** 2
+
     return np.sqrt(sum)
+
 
 def smooth_transition(s, method):
     """
@@ -288,8 +308,9 @@ def write_matrix_to_file(filename, matrix):
             line = " ".join(f"{val:.1e}" for val in row)
             f.write(line + "\n")
 
+
 @njit
-def Xbanded_matvec(N, kl, ku, b : np.ndarray, Ab : np.ndarray, x : np.ndarray):
+def Xbanded_matvec(N, kl, ku, b: np.ndarray, Ab: np.ndarray, x: np.ndarray):
     # f = Ab x.  Ab is the banded matrix in LAPACK format.
     for i in range(N):
         b[i] = 0.0
@@ -298,13 +319,37 @@ def Xbanded_matvec(N, kl, ku, b : np.ndarray, Ab : np.ndarray, x : np.ndarray):
             if 0 <= j < N:
                 b[i] += Ab[offset + kl, j] * x[j]
 
-@njit
-def banded_matvec(N, kl, ku, Ab, x):
+
+@njit(fastmath=True, cache=True)
+def banded_matvec(N, kl, ku, Ab, x, alpha):
+    """
+    Perform matrix-vector multiplication with a banded matrix in LAPACK format.
+
+    Returns the result of the operation b = alpha * Ab * x
+
+    Parameters
+    ----------
+    N : int
+        The number of rows and columns in the matrix.
+    kl : int
+        The number of lower bands.
+    ku : int
+        The number of upper bands.
+    Ab : ndarray
+        The banded matrix in LAPACK storage format, with shape (kl + ku +
+        1, N).
+    x : ndarray
+        The input vector of length N.
+    alpha : float
+        A scaling factor to multiply the result.
+
+    """
     b = np.zeros(N)
     for i in range(N):
         for j in range(max(0, i - kl), min(N, i + ku + 1)):
-            b[i] += Ab[ku + i - j, j] * x[j]
+            b[i] += Ab[ku + i - j, j] * x[j] * alpha
     return b
+
 
 @njit
 def construct_banded_matrix_numba(N, kl, ku, coeffs, bcoeffs, parity):
@@ -336,6 +381,7 @@ def construct_banded_matrix_numba(N, kl, ku, coeffs, bcoeffs, parity):
                     A[i, j] = coeffs[offset + kl]
 
     return A
+
 
 def linear_interpolation(f, x, x0):
     """

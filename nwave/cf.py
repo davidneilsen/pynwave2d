@@ -11,7 +11,9 @@ CompactFilterTypes = {
     FilterType.JTT8,
     FilterType.JTP8,
     FilterType.KP4,
+    FilterType.F2,
 }
+
 
 class NCompactFilter(Filter1D):
     """
@@ -43,6 +45,14 @@ class NCompactFilter(Filter1D):
         self.overwrite = True
         self.checkf = True
         self.dx = dx
+
+        self.Qb = full_to_banded(Qmat[0], Qmat[1][0], Qmat[1][1])
+        Qf = banded_to_full(self.Qb, self.Qbands[0], self.Qbands[1], self.N, self.N)
+        if not np.allclose(Qf, self.Q):
+            raise ValueError(
+                "NCompactFilter init: Q matrix is not banded correctly.  Check Qbands and Q matrix."
+            )
+
         super().__init__(dx, apply_filter, filter_type, frequency)
 
     @classmethod
@@ -147,10 +157,12 @@ class NCompactFilter(Filter1D):
             )
 
         if self.method == CFDSolve.SCIPY:
-            rhs = np.matmul(self.Q, u)
+            # rhs = np.matmul(self.Q, u)
+            rhs = banded_matvec(self.N, self.Qbands[0], self.Qbands[1], self.Qb, u, 1.0)
             u_f = solve_banded(self.Pbands, self.P, rhs)
         elif self.method == CFDSolve.LUSOLVE:
-            rhs = np.matmul(self.Q, u)
+            # rhs = np.matmul(self.Q, u)
+            rhs = banded_matvec(self.N, self.Qbands[0], self.Qbands[1], self.Qb, u, 1.0)
             u_f = solve_banded(
                 self.Pbands,
                 self.P,
@@ -164,6 +176,28 @@ class NCompactFilter(Filter1D):
             )
 
         return u_f
+
+
+def _filter_F2_Q(alpha):
+    Q_coeffs = 0.5 * np.array(
+        [
+            (1 + 2 * alpha) / 2,
+            (1 + 2 * alpha),
+            (1 + 2 * alpha) / 2,
+        ]
+    )
+
+    bcoeffs0 = np.array([0.5 + 0.5 * alpha, 0.5 + 0.5 * alpha])
+    Q_bcoeffs = [bcoeffs0]
+
+    return [Q_coeffs, Q_bcoeffs, (1, 1), 1]
+
+
+def _filter_F2_P(alpha):
+    P_coeffs = np.array([alpha, 1.0, alpha])
+    P_bcoeffs = [np.array([1.0, alpha])]
+
+    return [P_coeffs, P_bcoeffs, (1, 1), 1]
 
 
 def _filter_jtt4_Q(alpha):
@@ -366,22 +400,44 @@ def build_filter(N: int, ftype: FilterType, filter_bounds, alpha, beta):
     elif ftype == FilterType.JTP8:
         Pmat = _filter_jtp8_P(alpha, beta)
         Qmat = _filter_jtx8_Q(alpha, beta)
+    elif ftype == FilterType.F2:
+        Pmat = _filter_F2_P(alpha)
+        Qmat = _filter_F2_Q(alpha)
     else:
         raise ValueError(f"Unsupported filter type: {ftype}")
 
+    pbounds = Pmat[1]
+    qbounds = Qmat[1]
+    if filter_bounds == False:
+        pbounds = []
+        for i in range(len(pbounds)):
+            prow = np.zeros(i + 1, dtype=np.float64)
+            prow[i] = 1.0
+            pbounds.append(prow)
+        qbounds = pbounds
+
     pbands = Pmat[2]
     Px = construct_banded_matrix_numba(
-        N, pbands[0], pbands[1], Pmat[0], Pmat[1], Pmat[3]
+        N, pbands[0], pbands[1], Pmat[0], pbounds, Pmat[3]
     )
     P = full_to_banded(Px, pbands[0], pbands[1])
 
     qbands = Qmat[2]
-    Q = construct_banded_matrix(N, qbands[0], qbands[1], Qmat[0], Qmat[1], Qmat[3])
+    qparity = Qmat[3]
+    # count the number of bands for the boundary terms in the Q matrix
+    nqb = 0
+    for iq in range(len(qbounds)):
+        nqb = max(nqb, len(qbounds[iq]) - 1 - iq)
 
-    return [P, pbands], [Q, qbands]
+    # set the total number of bands for the Q matrix
+    qtotbands = (max(nqb, qbands[0]), max(nqb, qbands[1]))
+    Q = construct_banded_matrix_numba(
+        N, qbands[0], qbands[1], Qmat[0], qbounds, qparity
+    )
+
+    return [P, pbands], [Q, qtotbands]
 
 
-@njit
 def build_bh_filter(N: int, ftype: FilterType, r, mask, filter_bounds, alpha, beta):
     """
     Build a filter for boundary handling based on the specified type and parameters.
@@ -391,19 +447,37 @@ def build_bh_filter(N: int, ftype: FilterType, r, mask, filter_bounds, alpha, be
     p0bands = P0mat[1]
     q0bands = Q0mat[1]
     P0b = P0mat[0]
-    P0 = banded_to_full_slow(P0b, p0bands[0], p0bands[1], N, N)
+    P0 = banded_to_full(P0b, p0bands[0], p0bands[1], N, N)
     Q0 = Q0mat[0]
 
+    ftypeBH = FilterType.JTT4
+    PBHmat, QBHmat = build_filter(N, ftypeBH, filter_bounds, alpha, beta)
+    PBHb = PBHmat[0]
+    pBHbands = PBHmat[1]
+    qBHbands = QBHmat[1]
+    PBH = banded_to_full(PBHb, pBHbands[0], pBHbands[1], N, N)
+    QBH = QBHmat[0]
+
     Ident = np.identity(N, dtype=np.float64)
-    P0f = banded_to_full_slow(P0, p0bands[0], p0bands[1], N, N)
     P = np.zeros((N, N), dtype=np.float64)
     Q = np.zeros((N, N), dtype=np.float64)
 
+    blend_filters(P, mask, P0, PBH)
+    blend_filters(Q, mask, Q0, QBH)
+
+    pbands = (max(p0bands[0], pBHbands[0]), max(p0bands[1], pBHbands[1]))
+    qbands = (max(q0bands[0], qBHbands[0]), max(q0bands[1], qBHbands[1]))
+    Pb = full_to_banded(P, pbands[0], pbands[1])
+
+    return [Pb, pbands], [Q, qbands]
+
+
+@njit
+def blend_filters(C, alpha, A, B):
+    """
+    compute C = alpha * A + (1-alpha) * B
+    """
+    N = len(alpha)
     for i in range(N):
         for j in range(N):
-            P[i, j] = mask[i] * P0f[i, j] + (1 - mask[i]) * Ident[i, j]
-            Q[i, j] = mask[i] * Q0[i, j] + (1 - mask[i]) * Ident[i, j]
-
-    Pb = full_to_banded(P, p0bands[0], p0bands[1])
-
-    return [Pb, p0bands], [Q, q0bands]
+            C[i, j] = alpha[i] * A[i, j] + (1.0 - alpha[i]) * B[i, j]

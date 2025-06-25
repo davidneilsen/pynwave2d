@@ -1,6 +1,7 @@
 import numpy as np
 import sys
 import os
+import csv
 from numba import njit
 
 # Add the parent directory to sys.path
@@ -215,6 +216,7 @@ class BSSN(Equations):
         v = self.gbssn_system.eqs
         lambda_lapse = self.gbssn_system.lapse
         lambda_shift = self.gbssn_system.shift
+        r = g.xi[0]
 
         chi = u[self.U_CHI]
         g_rr = u[self.U_GRR]
@@ -308,11 +310,11 @@ class BSSN(Equations):
 
         if self.have_d2:
             # Use native second derivatives
-            d2_chi = g.D2.grad2(f_chi)
-            d2_g_rr = g.D2.grad2(f_g_rr)
-            d2_g_tt = g.D2.grad2(f_g_tt)
-            d2_alpha = g.D2.grad2(f_alpha)
-            d2_beta_r = g.D2.grad2(f_beta_r)
+            d2_chi = g.D2.grad(f_chi)
+            d2_g_rr = g.D2.grad(f_g_rr)
+            d2_g_tt = g.D2.grad(f_g_tt)
+            d2_alpha = g.D2.grad(f_alpha)
+            d2_beta_r = g.D2.grad(f_beta_r)
         else:
             # Use first derivatives to approximate second derivatives
             d2_chi = g.D1.grad(d_chi)
@@ -430,7 +432,6 @@ class BSSN(Equations):
             d_beta_r,
             ad_B_r,
         ]
-        r = g.xi[0]
         for m in range(len(u)):
             BSSN.bc_sommerfeld(
                 dtu[m],
@@ -443,7 +444,8 @@ class BSSN(Equations):
                 self.extended_domain,
             )
 
-        if DEBUG:
+        DEBUG3 = False
+        if DEBUG3:
             print("v = ", v)
             print("dt_alpha = ", l2norm(alpha_rhs[10:]))
             print("dt_beta_r = ", l2norm(beta_r_rhs[10:]))
@@ -454,6 +456,79 @@ class BSSN(Equations):
             print("dt_K = ", l2norm(K_rhs[10:]))
             print("dt_Gamma_r = ", l2norm(Gamma_r_rhs[10:]))
             sys.exit(0)
+
+        DEBUG_WRITE_RHS = False
+        DEBUG_WRITE_DERIVS = False
+        if DEBUG_WRITE_RHS:
+            """write RHS to CSV file for debugging"""
+            with open("bssn_rhs.csv", "w", newline="") as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(
+                    [
+                        "Index",
+                        "r",
+                        "chi_rhs",
+                        "g_rr_rhs",
+                        "g_tt_rhs",
+                        "A_rr_rhs",
+                        "K_rhs",
+                        "Gamma_r_rhs",
+                        "alpha_rhs",
+                        "beta_r_rhs",
+                        "B_r_rhs",
+                    ]
+                )
+                for i in range(g.shp[0]):
+                    writer.writerow(
+                        [
+                            i,
+                            r[i],
+                            chi_rhs[i],
+                            g_rr_rhs[i],
+                            g_tt_rhs[i],
+                            A_rr_rhs[i],
+                            K_rhs[i],
+                            Gamma_r_rhs[i],
+                            alpha_rhs[i],
+                            beta_r_rhs[i],
+                            B_r_rhs[i],
+                        ]
+                    )
+
+        if DEBUG_WRITE_DERIVS:
+            """write derivatives to CSV file for debugging"""
+            with open("bssn_derivs.csv", "w", newline="") as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(
+                    [
+                        "Index",
+                        "r",
+                        "d_alpha",
+                        "d_beta_r",
+                        "d_chi",
+                        "d_g_rr",
+                        "d_g_tt",
+                        "d_K",
+                        "d_Gamma_r",
+                    ]
+                )
+                for i in range(g.shp[0]):
+                    writer.writerow(
+                        [
+                            i,
+                            r[i],
+                            d_alpha[i],
+                            d_beta_r[i],
+                            d_chi[i],
+                            d_g_rr[i],
+                            d_g_tt[i],
+                            d_K[i],
+                            d_Gamma_r[i],
+                        ]
+                    )
+
+        if DEBUG_WRITE_DERIVS or DEBUG_WRITE_RHS:
+            sys.exit(-1)
 
     @staticmethod
     @njit
@@ -726,6 +801,7 @@ class BSSN(Equations):
         Ham = self.C[self.C_HAM]
         Mom = self.C[self.MOM]
         Gamcon = self.C[self.GAMCON]
+        nghost = g.get_nghost()
 
         chi = u[self.U_CHI]
         g_rr = u[self.U_GRR]
@@ -745,8 +821,10 @@ class BSSN(Equations):
         d_A_rr = g.D1.grad(A_rr)
         d_K = g.D1.grad(K)
 
-        d2_chi = g.D2.grad2(chi)
-        d2_g_tt = g.D2.grad2(g_tt)
+        d2_chi = g.D2.grad(chi)
+        d2_g_tt = g.D2.grad(g_tt)
+
+        r = g.xi[0]
 
         DEBUG_DERIVS = False
         if DEBUG_DERIVS:
@@ -759,8 +837,8 @@ class BSSN(Equations):
             ed_g_tt = ED1.grad(g_tt)
             ed_A_rr = ED1.grad(A_rr)
             ed_K = ED1.grad(K)
-            ed2_chi = ED2.grad2(chi)
-            ed2_g_tt = ED2.grad2(g_tt)
+            ed2_chi = ED2.grad(chi)
+            ed2_g_tt = ED2.grad(g_tt)
             print(f"...D1(chi):  {l2norm(d_chi - ed_chi):.2e}")
             print(f"...D1(g_rr): {l2norm(d_g_rr - ed_g_rr):.2e}")
             print(f"...D1(g_tt): {l2norm(d_g_tt - ed_g_tt):.2e}")
@@ -785,6 +863,8 @@ class BSSN(Equations):
             d_K,
             d2_chi,
             d2_g_tt,
+            r,
+            nghost,
         )
 
     @staticmethod
@@ -818,6 +898,8 @@ class BSSN(Equations):
         d_K,
         d2_chi,
         d2_g_tt,
+        r,
+        nghost,
     ):
 
         inv_g_rr = 1.0 / g_rr
@@ -846,6 +928,19 @@ class BSSN(Equations):
         )
 
         Gamcon[:] = -0.5 * d_g_rr * inv_g_rr2 + Gamma_r + d_g_tt * inv_g_rr * inv_g_tt
+
+        for i in range(len(r)):
+            if np.abs(r[i]) < 0.5:
+                Ham[i] = 0.0
+                Mom[i] = 0.0
+                Gamcon[i] = 0.0
+
+        Ham[0:nghost] = 0.0
+        Ham[-nghost:-1] = 0.0
+        Mom[0:nghost] = 0.0
+        Mom[-nghost:-1] = 0.0
+        Gamcon[0:nghost] = 0.0
+        Gamcon[-nghost:-1] = 0.0
 
     def find_horizon(self, g: Grid, r0):
         if r0 == None:

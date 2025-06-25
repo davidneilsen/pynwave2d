@@ -5,6 +5,7 @@ from .bandedLUSolve import *
 from .utils import *
 from .types import *
 import pentapy as pp
+from numba import njit
 
 CompactFirstDerivatives = [
     DerivType.D1_KP4,
@@ -66,6 +67,14 @@ class NCompactDerivative:
         self.overwrite = True
         self.checkf = True
         self.mask = mask
+        self.HAVE_ADVECTIVE_DERIV = False
+
+        self.Qb = full_to_banded(Qmat[0], Qmat[1][0], Qmat[1][1])
+        Qf = banded_to_full(self.Qb, self.Qbands[0], self.Qbands[1], self.N, self.N)
+        if not np.allclose(Qf, self.Q):
+            raise ValueError(
+                "Q matrix is not banded correctly.  Check Qbands and Q matrix."
+            )
 
         if self.method == CFDSolve.LUSOLVE:
             # factor the P matrix for LU solve
@@ -165,6 +174,12 @@ class NCompactDerivative:
         """
         return self.Q
 
+    def get_Qb(self) -> np.ndarray:
+        """
+        Get the Q matrix.
+        """
+        return self.Qb
+
     def get_Pbands(self) -> tuple:
         """
         Get the P bands.
@@ -203,16 +218,23 @@ class NCompactDerivative:
         if self.method == CFDSolve.LUSOLVE:
             # DGBMV is about 4 times slower than numpy matmul
             # rhs = dgbmv(self.N, self.N, self.Qbands[0], self.Qbands[1], self.denom, self.Q, f)
-            rhs = np.matmul(self.Q, f) * self.denom
+            # rhs = np.matmul(self.Q, f) * self.denom
+            rhs = banded_matvec(
+                self.N, self.Qbands[0], self.Qbands[1], self.Qb, f, self.denom
+            )
             dxf = lu_solve_banded(
                 self.lu_factorization, rhs, overwrite_b=True, check_finite=self.checkf
             )
         elif self.method == CFDSolve.D_INV:
-            dxf = np.matmul(self.D, f) * self.denom
+            dxf = _matvec_numba(self.D, f, self.denom)
         elif self.method == CFDSolve.D_LU:
-            dxf = np.matmul(self.D, f) * self.denom
+            dxf = _matvec_numba(self.D, f, self.denom)
         elif self.method == CFDSolve.SCIPY:
-            rhs = np.matmul(self.Q, f) * self.denom
+            # Use Numba-accelerated banded matrix-vector multiply for rhs
+            # rhs0 = np.matmul(self.Q, f) * self.denom
+            rhs = banded_matvec(
+                self.N, self.Qbands[0], self.Qbands[1], self.Qb, f, self.denom
+            )
             dxf = solve_banded(self.Pbands, self.P, rhs)
         elif self.method == CFDSolve.PENTAPY:
             rhs = np.matmul(self.Q, f) * self.denom
@@ -225,6 +247,11 @@ class NCompactDerivative:
             )
 
         return dxf
+
+
+@njit(fastmath=True, cache=True)
+def _matvec_numba(D, f, alpha):
+    return np.dot(D, f) * alpha
 
 
 def _coeffs_D1_JTT4():
@@ -863,13 +890,16 @@ def build_derivative(N: int, dtype: DerivType):
         )
         P = full_to_banded(Pf, pbands[0], pbands[1])
 
+    # count the number of bands for the boundary terms in the Q matrix
     nqb = 0
     for iq in range(len(Qmat[1])):
         nqb = max(nqb, len(Qmat[1][iq]) - 1 - iq)
-    qtotbands = (nqb, nqb)
 
     qparity = Qmat[3]
     qbands = Qmat[2]
+    # set the total number of bands for the Q matrix
+    qtotbands = (max(nqb, qbands[0]), max(nqb, qbands[1]))
+
     Q = construct_banded_matrix_numba(
         N, qbands[0], qbands[1], Qmat[0], Qmat[1], qparity
     )

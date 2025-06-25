@@ -25,6 +25,7 @@ class FilterType(Enum):
     JTT8 = 7
     JTP8 = 8
     KP4 = 9
+    F2 = 10
 
 
 class FilterApply(Enum):
@@ -88,6 +89,7 @@ filter_type_map = {
     "JTT8": FilterType.JTT8,
     "JTP8": FilterType.JTP6,
     "KP4": FilterType.KP4,
+    "F2": FilterType.F2,
 }
 
 filter_apply_map = {
@@ -109,7 +111,9 @@ d1_type_map  = {
     "DSQ6A": DerivType.D1_DSQ6A,
     "DSQ6B": DerivType.D1_DSQ6B,
     "DSQ6B": DerivType.D1_DSQ6B,
+    "ME4": DerivType.D1_ME44,
     "ME44": DerivType.D1_ME44,
+    "ME6": DerivType.D1_ME642,
     "ME642": DerivType.D1_ME642,
 }
 
@@ -124,7 +128,9 @@ d2_type_map = {
     "DSQ6A": DerivType.D2_DSQ6A,
     "DSQ6B": DerivType.D2_DSQ6B,
     "DSQ6B": DerivType.D2_DSQ6B,
+    "ME4": DerivType.D2_ME44,
     "ME44": DerivType.D2_ME44,
+    "ME6": DerivType.D2_ME642,
     "ME642": DerivType.D2_ME642,
 }
 
