@@ -243,20 +243,20 @@ class BSSN(Equations):
                 "Grid object 'g' must have non-None D1 and D2 attributes with 'grad' and 'grad2' methods."
             )
 
-        filrhs = None
+        filderivs = None
         if g.num_filters > 0:
             for fx in g.Filter:
                 if fx.apply_filter == FilterApply.APPLY_DERIVS:
-                    filrhs = fx
+                    filderivs = fx
 
-        if filrhs is not None:
-            f_alpha = filrhs.filter(alpha)
-            f_beta_r = filrhs.filter(beta_r)
-            f_chi = filrhs.filter(chi)
-            f_g_rr = filrhs.filter(g_rr)
-            f_g_tt = filrhs.filter(g_tt)
-            f_K = filrhs.filter(K)
-            f_Gamma_r = filrhs.filter(Gamma_r)
+        if filderivs is not None:
+            f_alpha = filderivs.filter(alpha)
+            f_beta_r = filderivs.filter(beta_r)
+            f_chi = filderivs.filter(chi)
+            f_g_rr = filderivs.filter(g_rr)
+            f_g_tt = filderivs.filter(g_tt)
+            f_K = filderivs.filter(K)
+            f_Gamma_r = filderivs.filter(Gamma_r)
         else:
             f_alpha = alpha
             f_beta_r = beta_r

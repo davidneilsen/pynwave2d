@@ -58,14 +58,15 @@ class NCompactFilter(Filter1D):
     @classmethod
     def init_filter(
         cls,
-        r,
+        r : np.ndarray,
         filter_type: FilterType,
         apply_filter: FilterApply,
         method: CFDSolve,
         frequency: int,
-        filter_bounds,
-        alpha,
+        filter_bounds : bool,
+        alpha : float,
         beta=0.0,
+        ko_sigma=0.4,
     ):
         """
         Build a filter based on the specified type and parameters.
@@ -81,26 +82,37 @@ class NCompactFilter(Filter1D):
         N = len(r)
         dr = r[1] - r[0]
 
-        Pmat, Qmat = build_filter(N, filter_type, filter_bounds, alpha, beta)
+        if apply_filter == FilterApply.RHS:
+            ko_filter = True
+        else:
+            ko_filter = False
+
+        Pmat, Qmat = build_filter(r, filter_type, filter_bounds, alpha, beta, ko_filter, ko_sigma)
         return cls(N, apply_filter, filter_type, method, Pmat, Qmat, frequency, dr)
 
     @classmethod
     def init_bh_filter(
         cls,
-        r,
+        r : np.ndarray,
         ftype: FilterType,
         apply_filter: FilterApply,
         method: CFDSolve,
         frequency: int,
-        mask_pos,
-        mask_width,
-        filter_bounds,
-        alpha,
+        mask_pos : float,
+        mask_width : float,
+        filter_bounds : bool,
+        alpha : float,
         beta=0.0,
+        ko_sigma=0.4,
     ):
 
         N = len(r)
         dr = r[1] - r[0]
+
+        if apply_filter == FilterApply.RHS:
+            ko_filter = True
+        else:
+            ko_filter = False
 
         mask0 = 1.0
         maskBH = 0.0
@@ -111,7 +123,7 @@ class NCompactFilter(Filter1D):
         mask = generalized_transition_profile(
             r, mask0, maskBH, r0, r1, r2, r3, method="tanh"
         )
-        Pmat, Qmat = build_bh_filter(N, ftype, r, mask, filter_bounds, alpha, beta)
+        Pmat, Qmat = build_bh_filter(N, ftype, r, mask, filter_bounds, alpha, beta, ko_filter, ko_sigma)
         return cls(N, apply_filter, ftype, method, Pmat, Qmat, frequency, dr, mask)
 
     def get_filter_type(self):
@@ -373,7 +385,9 @@ def _filter_jtp8_P(alpha, beta):
     return [P_coeffs, P_bcoeffs, (2, 2), 1]
 
 
-def build_filter(N: int, ftype: FilterType, filter_bounds, alpha, beta):
+def build_filter(
+    r, ftype: FilterType, filter_bounds, alpha, beta, kreiss_oliger, ko_sigma
+):
     """
     Build a filter based on the specified type and parameters.
 
@@ -385,6 +399,9 @@ def build_filter(N: int, ftype: FilterType, filter_bounds, alpha, beta):
     Returns:
         Filter1D: The constructed filter object.
     """
+    N = len(r)
+    idr = 1.0 / (r[1] - r[0])  # inverse of the grid spacing
+
     if ftype == FilterType.JTT4:
         Pmat = _filter_jtt4_P(alpha)
         Qmat = _filter_jtt4_Q(alpha)
@@ -406,19 +423,47 @@ def build_filter(N: int, ftype: FilterType, filter_bounds, alpha, beta):
     else:
         raise ValueError(f"Unsupported filter type: {ftype}")
 
+    pcoeffs = Pmat[0]
+    qcoeffs = Qmat[0]
     pbounds = Pmat[1]
     qbounds = Qmat[1]
+
+    if kreiss_oliger:
+        if filter_bounds:
+            raise ValueError(
+                "Kreiss-Oliger filter does not support filter bounds. Set filter_bounds to False."
+            )
+        imid = len(qcoeffs) // 2
+        qcoeffs[imid] -= 1.0
+        if abs(alpha) > 1.0e-8:
+            qcoeffs[imid - 1] -= alpha
+            qcoeffs[imid + 1] -= alpha
+        if abs(beta) > 1.0e-8:
+            qcoeffs[imid - 2] -= beta
+            qcoeffs[imid + 2] -= beta
+        qcoeffs *= ko_sigma * idr
+
     if filter_bounds == False:
-        pbounds = []
+        pbident = []
+        qbident = []
         for i in range(len(pbounds)):
             prow = np.zeros(i + 1, dtype=np.float64)
             prow[i] = 1.0
-            pbounds.append(prow)
-        qbounds = pbounds
+            pbident.append(prow)
+            if kreiss_oliger:
+                qrow = np.zeros_like(prow, dtype=np.float64)
+                qrow *= ko_sigma * idr
+            else:
+                qrow = prow.copy()
+            qbident.append(qrow)
+        pbounds = pbident
+        qbounds = qbident
 
     pbands = Pmat[2]
+    print(f"pbands = {pbands}")
+    print(f"pbounds = {pbounds}")
     Px = construct_banded_matrix_numba(
-        N, pbands[0], pbands[1], Pmat[0], pbounds, Pmat[3]
+        N, pbands[0], pbands[1], pcoeffs, pbounds, Pmat[3]
     )
     P = full_to_banded(Px, pbands[0], pbands[1])
 
@@ -432,18 +477,18 @@ def build_filter(N: int, ftype: FilterType, filter_bounds, alpha, beta):
     # set the total number of bands for the Q matrix
     qtotbands = (max(nqb, qbands[0]), max(nqb, qbands[1]))
     Q = construct_banded_matrix_numba(
-        N, qbands[0], qbands[1], Qmat[0], qbounds, qparity
+        N, qbands[0], qbands[1], qcoeffs, qbounds, qparity
     )
 
     return [P, pbands], [Q, qtotbands]
 
 
-def build_bh_filter(N: int, ftype: FilterType, r, mask, filter_bounds, alpha, beta):
+def build_bh_filter(N: int, ftype: FilterType, r, mask, filter_bounds, alpha, beta, kreiss_oliger, ko_sigma):
     """
     Build a filter for boundary handling based on the specified type and parameters.
     """
 
-    P0mat, Q0mat = build_filter(N, ftype, filter_bounds, alpha, beta)
+    P0mat, Q0mat = build_filter(r, ftype, filter_bounds, alpha, beta, kreiss_oliger, ko_sigma)
     p0bands = P0mat[1]
     q0bands = Q0mat[1]
     P0b = P0mat[0]
@@ -451,7 +496,7 @@ def build_bh_filter(N: int, ftype: FilterType, r, mask, filter_bounds, alpha, be
     Q0 = Q0mat[0]
 
     ftypeBH = FilterType.JTT4
-    PBHmat, QBHmat = build_filter(N, ftypeBH, filter_bounds, alpha, beta)
+    PBHmat, QBHmat = build_filter(r, ftypeBH, filter_bounds, alpha, beta, kreiss_oliger, ko_sigma)
     PBHb = PBHmat[0]
     pBHbands = PBHmat[1]
     qBHbands = QBHmat[1]
