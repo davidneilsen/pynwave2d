@@ -6,15 +6,15 @@ import os
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from nwave import Equations, Grid2D
+from nwave import *
 
 
 class ScalarField(Equations):
     def __init__(self, NU, g: Grid2D, bctype):
         if bctype == "SOMMERFELD":
-            apply_bc = "RHS"
+            apply_bc = BCType.RHS
         elif bctype == "REFLECT":
-            apply_bc = "FUNCTION"
+            apply_bc = BCType.FUNCTION
         else:
             raise ValueError(
                 "Invalid boundary condition type. Use 'SOMMERFELD' or 'REFLECT'."
@@ -36,7 +36,7 @@ class ScalarField(Equations):
         dyyphi = g.D2.grad_yy(phi)
         dtchi[:] = dxxphi[:] + dyyphi[:]
 
-        if self.bound_cond == "SOMMERFELD":
+        if self.apply_bc == BCType.RHS and self.bound_cond == "SOMMERFELD":
             # Sommerfeld boundary conditions
             x = g.xi[0]
             y = g.xi[1]

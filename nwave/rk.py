@@ -54,7 +54,7 @@ class RK4:
         for i in range(nu):
             us[i][:] = u0[i][:] + 0.5 * dt * k1[i][:]
         if e.apply_bc == BCType.FUNCTION:
-            e.apply_bcs(self.us, g)
+            e.apply_bcs(us, g)
 
         # Stage 2
         e.rhs(k2, us, g)

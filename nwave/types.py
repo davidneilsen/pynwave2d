@@ -102,8 +102,8 @@ filter_apply_map = {
 }
 
 d1_type_map = {
-    "E4": DerivType.D1_DE4,
-    "E44": DerivType.D1_DE4,
+    "E4": DerivType.D1_E44,
+    "E44": DerivType.D1_E44,
     "E6": DerivType.D1_E642,
     "E642": DerivType.D1_E642,
     "JT4": DerivType.D1_JT4,

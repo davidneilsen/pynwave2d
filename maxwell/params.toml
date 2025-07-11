@@ -1,0 +1,29 @@
+Nt = 1000
+Nx = 401
+Ny = 201
+Xmin = -10.0
+Xmax = 10.0
+Ymin = -5.0
+Ymax = 5.0
+
+cfl = 0.1
+D1 = "JP6"
+D2 = "JP6"
+
+# idtype options:  waveguide, gaussian
+id_type = "waveguide"
+
+id_B0 = 1.0
+
+#waveguide params
+id_mode_m = 5
+id_mode_n = 3
+
+#gaussian params
+id_x0 = 0.0
+id_y0 = 0.0
+id_sigma = 0.5
+
+
+output_dir = "output_maxwell"
+output_interval = 5

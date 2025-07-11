@@ -6,11 +6,11 @@ import os
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from nwave import Equations, Grid2D
+from nwave import *
 
 
 class Advection(Equations):
-    def __init__(self, NU, g: Grid2D, apply_bc=None):
+    def __init__(self, NU, g, apply_bc=BCType.NONE):
         super().__init__(NU, g, apply_bc)
         self.U_PHI = 0
         self.alpha = 0.0
@@ -18,7 +18,7 @@ class Advection(Equations):
     def set_alpha(self, alpha):
         self.alpha = alpha
 
-    def rhs(self, dtu, u, g: Grid2D):
+    def rhs(self, dtu, u, g):
         dtphi = dtu[0]
         phi = u[0]
         X, Y = np.meshgrid(g.xi[0], g.xi[1], indexing="ij")
@@ -37,7 +37,7 @@ class Advection(Equations):
         dtphi[:, 0] = 0.0
         dtphi[-1, :] = 0.0
 
-    def initialize(self, g: Grid2D, params):
+    def initialize(self, g, params):
         x = g.xi[0]
         y = g.xi[1]
         x0, y0 = params["id_x0"], params["id_y0"]
@@ -45,5 +45,5 @@ class Advection(Equations):
         X, Y = np.meshgrid(x, y, indexing="ij")
         self.u[0][:, :] = amp * np.exp(-omega * ((X - x0) ** 2 + (Y - y0) ** 2))
 
-    def apply_bcs(self, u, g: Grid2D):
+    def apply_bcs(self, u, g):
         print("no bcs")

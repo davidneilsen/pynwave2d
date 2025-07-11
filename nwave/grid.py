@@ -179,7 +179,7 @@ class Grid2D(Grid):
         xi = [np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny)]
 
         dxn = np.array([dx, dy])
-        print(f"Grid2D: {shp}, {xi}, {dxn}")
+        #print(f"Grid2D: {shp}, {xi}, {dxn}")
         super().__init__(shp, xi, dxn, ng)
 
     def set_D1(self, d1: fd.FirstDerivative2D):

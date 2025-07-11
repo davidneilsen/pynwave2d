@@ -12,7 +12,6 @@ from nwave import *
 import nwave.ioxdmf as iox
 
 
-
 def main(parfile):
     # Read parameters
     with open(parfile, "rb") as f:
