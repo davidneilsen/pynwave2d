@@ -43,7 +43,7 @@ class Advection(Equations):
         x0, y0 = params["id_x0"], params["id_y0"]
         amp, omega = params["id_amp"], params["id_omega"]
         X, Y = np.meshgrid(x, y, indexing="ij")
-        self.u[0][:, :] = np.exp(-omega * ((X - x0) ** 2 + (Y - y0) ** 2))
+        self.u[0][:, :] = amp * np.exp(-omega * ((X - x0) ** 2 + (Y - y0) ** 2))
 
     def apply_bcs(self, u, g: Grid2D):
         print("no bcs")

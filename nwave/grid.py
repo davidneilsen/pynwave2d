@@ -84,9 +84,14 @@ class Grid1D(Grid):
         dx = (xmax - xmin) / (nx - 1)
 
         if cell_centered:
-            xmin += 0.5 * dx
             xmax += 0.5 * dx
+            if xmin < 0.0:
+                xmin -= 0.5 * dx
+                nx += 1
+            else:
+                xmin += 0.5 * dx
 
+        print(f"Grid1D: nx={nx}, xmin={xmin}, xmax={xmax}, dx={dx}, ng={ng} cell_centered={cell_centered}")
         nx = nx + 2 * ng
         xmin -= ng * dx
         xmax += ng * dx

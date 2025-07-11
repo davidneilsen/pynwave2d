@@ -1,0 +1,21 @@
+Nt = 10000
+
+Nx = 65
+Ny = 65
+Xmin = -0.5
+Xmax = 0.5
+Ymin = -0.5
+Ymax = 0.5
+
+cfl = 0.1
+D1 = "BYUP4_Op18"
+D2 = "E642"
+diss_alpha = 0.0
+
+id_x0 = -0.25
+id_y0 = 0.0
+id_omega = 1500.0
+id_amp = 5.0
+
+output_dir = "output_advec"
+output_interval = 100

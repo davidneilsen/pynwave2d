@@ -434,3 +434,143 @@ class ExplicitSecond44_2D(SecondDerivative2D):
             + 45 * u[:, -1]
         ) * idy_sqrd_by_12
         return dyyu
+
+
+class ExplicitFirst642_2D(FirstDerivative2D):
+    def __init__(self, dx, dy):
+        self.type = DerivType.D2_E642
+        super().__init__(dx, dy)
+
+    def get_type(self):
+        return self.type
+
+    def grad_x(self, u):
+        du = np.zeros_like(u)
+        idx = 1.0 / self.dx
+        idx_by_2 = 0.5 * idx
+        idx_by_12 = idx / 12.0
+        idx_by_60 = idx / 60.0
+
+        du[0, :] = (-3.0 * u[0, :] + 4.0 * u[1, :] - u[2]) * idx_by_2
+        du[1, :] = (-u[0, :] + u[2, :]) * idx_by_2
+        du[2, :] = (u[0, :] - 8.0 * u[1, :] + 8.0 * u[3, :] - u[4, :]) * idx_by_12
+
+        du[3:-3, :] = (
+            -u[:-6, :]
+            + 9.0 * u[1:-5, :]
+            - 45.0 * u[2:-4, :]
+            + 45.0 * u[4:-2, :]
+            - 9.0 * u[5:-1, :]
+            + u[6:, :]
+        ) * idx_by_60
+
+        du[-3, :] = (u[-5, :] - 8.0 * u[-4, :] + 8.0 * u[-2, :] - u[-1, :]) * idx_by_12
+        du[-2, :] = (-u[-3, :] + u[-1, :]) * idx_by_2
+        du[-1, :] = (u[-3, :] - 4.0 * u[-2, :] + 3.0 * u[-1, :]) * idx_by_2
+
+        return du
+
+    def grad_y(self, u):
+        du = np.zeros_like(u)
+        idy = 1.0 / self.dy
+        idy_by_2 = 0.5 * idy
+        idy_by_12 = idy / 12.0
+        idy_by_60 = idy / 60.0
+
+        du[:, 0] = (-3.0 * u[:, 0] + 4.0 * u[:, 1] - u[:, 2]) * idy_by_2
+        du[:, 1] = (-u[:, 0] + u[:, 2]) * idy_by_2
+        du[:, 2] = (u[:, 0] - 8.0 * u[:, 1] + 8.0 * u[:, 3] - u[:, 4]) * idy_by_12
+
+        du[:, 3:-3] = (
+            -u[:, :-6]
+            + 9.0 * u[:, 1:-5]
+            - 45.0 * u[:, 2:-4]
+            + 45.0 * u[:, 4:-2]
+            - 9.0 * u[:, 5:-1]
+            + u[:, 6:]
+        ) * idy_by_60
+
+        du[:, -3] = (u[:, -5] - 8.0 * u[:, -4] + 8.0 * u[:, -2] - u[:, -1]) * idy_by_12
+        du[:, -2] = (-u[:, -3] + u[:, -1]) * idy_by_2
+        du[:, -1] = (u[:, -3] - 4.0 * u[:, -2] + 3.0 * u[:, -1]) * idy_by_2
+
+        return du
+
+
+class ExplicitSecond642_2D(SecondDerivative2D):
+    def __init__(self, dx, dy):
+        self.type = DerivType.D2_E642
+        super().__init__(dx, dy)
+
+    def get_type(self):
+        return self.type
+
+    def grad_xx(self, u):
+        dxxu = np.zeros_like(u)
+
+        idx_sqrd = 1.00 / (self.dx * self.dx)
+        idx_sqrd_by_12 = idx_sqrd / 12.0
+        idx_sqrd_by_180 = idx_sqrd / 180.0
+
+        dxxu[0, :] = (
+            2.0 * u[0, :] - 5.0 * u[1, :] + 4.0 * u[2, :] - u[3, :]
+        ) * idx_sqrd
+        dxxu[1, :] = (u[0, :] - 2.0 * u[1, :] + u[2, :]) * idx_sqrd
+        dxxu[2, :] = (
+            -u[0, :] + 16.0 * u[1, :] - 30.0 * u[2, :] + 16.0 * u[3, :] - u[4, :]
+        ) * idx_sqrd_by_12
+
+        dxxu[3:-3, :] = (
+            2.0 * u[:-6, :]
+            - 27.0 * u[1:-5, :]
+            + 270.0 * u[2:-4, :]
+            - 490.0 * u[3:-3, :]
+            + 270.0 * u[4:-2, :]
+            - 27.0 * u[5:-1, :]
+            + 2.0 * u[6:, :]
+        ) * idx_sqrd_by_180
+
+        dxxu[-3, :] = (
+            -u[-5, :] + 16.0 * u[-4, :] - 30.0 * u[-3, :] + 16.0 * u[-2, :] - u[-1, :]
+        ) * idx_sqrd_by_12
+        dxxu[-2, :] = (u[-3, :] - 2.0 * u[-2, :] + u[-1, :]) * idx_sqrd
+        dxxu[-1, :] = (
+            -u[-4, :] + 4.0 * u[-3, :] - 5.0 * u[-2, :] + 2.0 * u[-1, :]
+        ) * idx_sqrd
+
+        return dxxu
+
+    def grad_yy(self, u):
+        dyyu = np.zeros_like(u)
+
+        idy_sqrd = 1.00 / (self.dy * self.dy)
+        idy_sqrd_by_12 = idy_sqrd / 12.0
+        idy_sqrd_by_180 = idy_sqrd / 180.0
+
+        dyyu[:, 0] = (
+            2.0 * u[:, 0] - 5.0 * u[:, 1] + 4.0 * u[:, 2] - u[:, 3]
+        ) * idy_sqrd
+        dyyu[:, 1] = (u[:, 0] - 2.0 * u[:, 1] + u[:, 2]) * idy_sqrd
+        dyyu[:, 2] = (
+            -u[:, 0] + 16.0 * u[:, 1] - 30.0 * u[:, 2] + 16.0 * u[:, 3] - u[:, 4]
+        ) * idy_sqrd_by_12
+
+        dyyu[:, 3:-3] = (
+            2.0 * u[:, :-6]
+            - 27.0 * u[:, 1:-5]
+            + 270.0 * u[:, 2:-4]
+            - 490.0 * u[:, 3:-3]
+            + 270.0 * u[:, 4:-2]
+            - 27.0 * u[:, 5:-1]
+            + 2.0 * u[:, 6:]
+        ) * idy_sqrd_by_180
+
+        dyyu[:, -3] = (
+            -u[:, -5] + 16.0 * u[:, -4] - 30.0 * u[:, -3] + 16.0 * u[:, -2] - u[:, -1]
+        ) * idy_sqrd_by_12
+        dyyu[:, -2] = (u[:, -3] - 2.0 * u[:, -2] + u[:, -1]) * idy_sqrd
+        dyyu[:, -1] = (
+            -u[:, -4] + 4.0 * u[:, -3] - 5.0 * u[:, -2] + 2.0 * u[:, -1]
+        ) * idy_sqrd
+
+        return dyyu

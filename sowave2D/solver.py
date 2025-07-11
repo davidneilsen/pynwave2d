@@ -1,30 +1,28 @@
 import numpy as np
 import sys
 import os
+import tomllib
 
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import sowave
-import json
+import sowaveutils as sutils
 from nwave import *
 import nwave.ioxdmf as iox
 
 
-def main():
+def main(parfile):
     # Read parameters
-    with open("params.json") as f:
-        params = json.load(f)
+    with open(parfile, "rb") as f:
+        params = tomllib.load(f)
 
     g = Grid2D(params)
     x = g.xi[0]
     y = g.xi[1]
     dx = g.dx[0]
     dy = g.dx[1]
-    # D1 = ExplicitFirst44_2D(dx, dy)
-    # D2 = ExplicitSecond44_2D(dx, dy)
-    D1 = CompactFirst2D(x, y, DerivType.D1_JP6, CFDSolve.LUSOLVE)
-    D2 = CompactSecond2D(x, y, DerivType.D2_JP6, CFDSolve.LUSOLVE)
+    D1, D2 = sutils.init_derivative_operators(x, y, params)
     g.set_D1(D1)
     g.set_D2(D2)
 
@@ -54,4 +52,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) != 2:
+        print("Usage:  python solver.py <parfile>")
+        sys.exit(1)
+
+    parfile = sys.argv[1]
+    main(parfile)
+

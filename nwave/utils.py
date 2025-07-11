@@ -330,25 +330,35 @@ def banded_matvec(N, kl, ku, Ab, x, alpha):
     Parameters
     ----------
     N : int
-        The number of rows and columns in the matrix.
+        The number of rows and columns in the matrix Ab.
     kl : int
-        The number of lower bands.
+        The number of lower bands for Ab.
     ku : int
-        The number of upper bands.
+        The number of upper bands for Ab.
     Ab : ndarray
         The banded matrix in LAPACK storage format, with shape (kl + ku +
         1, N).
-    x : ndarray
+    x : ndarray or matrix
         The input vector of length N.
     alpha : float
         A scaling factor to multiply the result.
 
     """
-    b = np.zeros(N)
-    for i in range(N):
-        for j in range(max(0, i - kl), min(N, i + ku + 1)):
-            b[i] += Ab[ku + i - j, j] * x[j] * alpha
-    return b
+    B = np.zeros_like(x)
+    if x.ndim == 1:
+        for i in range(N):
+            for j in range(max(0, i - kl), min(N, i + ku + 1)):
+                B[i] += Ab[ku + i - j, j] * x[j] * alpha
+    elif x.ndim == 2:
+        # x shape: (N, NCOL)
+        for col in range(x.shape[1]):
+            for i in range(N):
+                for j in range(max(0, i - kl), min(N, i + ku + 1)):
+                    B[i, col] += Ab[ku + i - j, j] * x[j, col] * alpha
+    else:
+        raise ValueError("x must be a 1D or 2D array")
+
+    return B
 
 
 @njit

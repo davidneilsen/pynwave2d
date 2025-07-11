@@ -9,7 +9,7 @@ class Equations(ABC):
     Abstract base class for a system of PDEs.
     """
 
-    def __init__(self, NU, g: Grid, apply_bc: BCType):
+    def __init__(self, NU, g, apply_bc: BCType):
         """
         Initialize the PDE system.
 
@@ -35,14 +35,14 @@ class Equations(ABC):
             self.u.append(d)
 
     @abstractmethod
-    def rhs(self, dtu, u, g: Grid):
+    def rhs(self, dtu, u, g):
         """
         The RHS update.
         """
         pass
 
     @abstractmethod
-    def apply_bcs(self, u, g: Grid):
+    def apply_bcs(self, u, g):
         """
         Routine to apply boundary conditions called from time integrator.
         """

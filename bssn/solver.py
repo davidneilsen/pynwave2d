@@ -23,17 +23,23 @@ def main(parfile):
     butil.verify_params(params)
 
     # Set up grid
+    level = params.get("level", 0)
+    nx0 = params["Nx"]
+    if nx0 % 2 != 0:
+        nx0 -= 1
+        print(f"Adjusted Nx to {nx0} (must be even)")
+
     if "Xmin" in params and params["Xmin"] < 0.0:
         extended_domain = True
-        cellgrid = False
-        if params["Nx"] % 2 != 0:
-            params["Nx"] += 1
-            print(f"Adjusted Nx to {params['Nx']} (must be even)")
+        cellgrid = True
+        params["Nx"] = (1 << level) * nx0 + 1
     else:
         extended_domain = False
         cellgrid = True
+        params["Nx"] = (1 << level) * nx0 + 1
 
     nghost = params["NGhost"]
+
     g = Grid1D(params, cell_centered=cellgrid)
 
     r = g.xi[0]
@@ -69,13 +75,13 @@ def main(parfile):
     )
     eqs.initialize(g, params)
 
-    output_dir = params["output_dir"]
-    output_interval = params["output_interval"]
-    print_interval = params["print_interval"]
+    output_dir = params["output_dir"] + "_" + str(level)
+    output_interval = params["output_interval"] * (1 << level)
+    print_interval = params["print_interval"] * (1 << level)
 
     os.makedirs(output_dir, exist_ok=True)
 
-    Nt = params["Nt"]
+    Nt = params["Nt"] * (1 << level)
     time = 0.0
     dt = params["cfl"] * dr
     rk4 = RK4(eqs, g)
@@ -94,8 +100,8 @@ def main(parfile):
     fname = f"{output_dir}/bssn_{step:04d}.curve"
     butil.write_curve(fname, 0.0, g.xi[0], eqs)
 
-    fname = f"{output_dir}/rtheta_{step:04d}.curve"
-    butil.write_curve_functions(fname, ["rTheta"], time, g.xi[0], [rTheta])
+    #fname = f"{output_dir}/rtheta_{step:04d}.curve"
+    #butil.write_curve_functions(fname, ["rTheta"], time, g.xi[0], [rTheta])
 
     # Create a CSV file for constraint norms
     conname = f"{output_dir}/bssn_constraints.dat"
@@ -153,8 +159,8 @@ def main(parfile):
         if i % output_interval == 0:
             fname = f"{output_dir}/bssn_{i:04d}.curve"
             butil.write_curve(fname, time, g.xi[0], eqs)
-            fname = f"{output_dir}/rtheta_{i:04d}.curve"
-            butil.write_curve_functions(fname, ["rTheta"], time, g.xi[0], [rTheta])
+            #fname = f"{output_dir}/rtheta_{i:04d}.curve"
+            #butil.write_curve_functions(fname, ["rTheta"], time, g.xi[0], [rTheta])
 
         if np.isnan(eqs.u[1]).any():
             print("Solution has a NaN.  Bye.")
@@ -164,5 +170,9 @@ def main(parfile):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage:  python solver.py <parfile>")
+        sys.exit(1)
+
     parfile = sys.argv[1]
     main(parfile)

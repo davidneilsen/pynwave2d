@@ -20,6 +20,8 @@ CompactFirstDerivatives = [
     DerivType.D1_Wm6,
     DerivType.D1_DSQ6B_LEFT,
     DerivType.D1_DSQ6B_RIGHT,
+    DerivType.D1_BYU_C6_Op10,
+    DerivType.D1_BYU_P4_Op18,
 ]
 CompactSecondDerivatives = [
     DerivType.D2_ME44,
@@ -821,6 +823,117 @@ def _coeffs_D1_DSQ6B_RIGHT():
     return Lmat, Rmat
 
 
+def _coeffs_D1_BYU_C6_Op10(D_coeffs):
+    """
+    Coefficients for the first derivative operator in the BYU C6 Op10 scheme.
+    """
+    alpha0 = 0.4963477370017426
+    alpha = alpha0 + D_coeffs[0]
+
+    beta = 0.04075360091710232
+    a1 = 0.723439643221641
+    a2 = 0.15683084734860173
+    gamma01 = 6.41607857818298
+    gamma02 = 3.624117867379136
+    gamma10 = 0.05045368184220923
+    gamma12 = 1.7003969127106167
+    gamma13 = 0.3354126691761755
+    a00 = -3.3853431556471
+    a01 = -3.762810726379067
+    a02 = 6.624117866996977
+    a03 = 0.541372622221082
+    a04 = -0.0173366074130172
+    a10 = -0.24136315021013707
+    a11 = -1.5974102131837702
+    a12 = 0.8455199507089511
+    a13 = 0.9803800752434986
+    a14 = 0.012873337440911644
+
+    # boundary elements for P matrix for 1st derivative
+    Lcoeffb = [
+        np.array([1.0, gamma01, gamma02]),
+        np.array([gamma10, 1.0, gamma12, gamma13]),
+    ]
+
+    # diagonal elements for P matrix for 1st derivative
+    Lcoeff = np.array([beta, alpha, 1.0, alpha, beta])
+
+    # boundary elements for Q matrix for 1st derivative
+    Rcoeffb = [np.array([a00, a01, a02, a03, a04]), np.array([a10, a11, a12, a13, a14])]
+
+    # diagonal elements for Q matrix for 1st derivative
+    Rcoeff = np.array([-a2, -a1, 0.0, a1, a2])
+    Lbands = (2, 2)
+    Rbands = (2, 2)
+    Lmat = [Lcoeff, Lcoeffb, Lbands, -1]
+    Rmat = [Rcoeff, Rcoeffb, Rbands, 1]
+    return Lmat, Rmat
+
+
+def _coeffs_D1_BYU_P4_Op18(D_coeffs):
+    alpha0 = 0.5770460201292381
+    alpha = alpha0 + D_coeffs[0]
+
+    beta = 0.08900836845092142
+    a1 = 0.6517078440898839
+    a2 = 0.24815882627035918
+    a3 = 0.006009630649852392
+    gamma01 = 7.382379779647204
+    gamma02 = 6.118391304701528
+    gamma10 = 0.06106149690079044
+    gamma12 = 2.6424801172618326
+    gamma13 = 1.3710069602113883
+    gamma20 = 0.014504838045567564
+    gamma21 = 0.2617273578999154
+    gamma23 = 1.110302482205355
+    gamma24 = 0.3070536064807964
+    a00 = -3.4387560411379563
+    a01 = -6.120972374567166
+    a02 = 7.819283685673539
+    a03 = 2.0327058980606223
+    a04 = -0.3578340204155545
+    a05 = 0.07704263923889951
+    a06 = -0.011469786857726549
+    a10 = -0.25047387349211636
+    a11 = -1.7715514547125182
+    a12 = -0.5198462724609013
+    a13 = 2.2536920432047496
+    a14 = 0.318588110606521
+    a15 = -0.0328153209921653
+    a16 = 0.0024067678049133558
+    a20 = -0.058823348930518396
+    a21 = -0.5249167357886487
+    a22 = -0.714498395784144
+    a23 = 0.5832981939847537
+    a24 = 0.6747270495592782
+    a25 = 0.0425803899581001
+    a26 = -0.0023671529988773697
+
+    # boundary elements for P matrix for 1st derivative
+    P1DiagBoundary = [
+        np.array([1.0, gamma01, gamma02]),
+        np.array([gamma10, 1.0, gamma12, gamma13]),
+        np.array([gamma20, gamma21, 1.0, gamma23, gamma24]),
+    ]
+
+    # diagonal elements for P matrix for 1st derivative
+    P1DiagInterior = np.array([beta, alpha, 1.0, alpha, beta])
+
+    # boundary elements for Q matrix for 1st derivative
+    Q1DiagBoundary = [
+        np.array([a00, a01, a02, a03, a04, a05, a06]),
+        np.array([a10, a11, a12, a13, a14, a15, a16]),
+        np.array([a20, a21, a22, a23, a24, a25, a26]),
+    ]
+
+    # diagonal elements for Q matrix for 1st derivative
+    Q1DiagInterior = np.array([-a3, -a2, -a1, 0.0, a1, a2, a3])
+
+    Lmat = [P1DiagInterior, P1DiagBoundary, (2, 2), -1]
+    Rmat = [Q1DiagInterior, Q1DiagBoundary, (3, 3), 1]
+    return Lmat, Rmat
+
+
 def build_derivative(N: int, dtype: DerivType):
     """
     Build the banded matrix for the specified derivative type.
@@ -870,6 +983,10 @@ def build_derivative(N: int, dtype: DerivType):
         Pmat, Qmat = _coeffs_D1_DSQ6B_LEFT()
     elif dtype == DerivType.D1_DSQ6B_RIGHT:
         Pmat, Qmat = _coeffs_D1_DSQ6B_RIGHT()
+    elif dtype == DerivType.D1_BYU_C6_Op10:
+        Pmat, Qmat = _coeffs_D1_BYU_C6_Op10([0.0])
+    elif dtype == DerivType.D1_BYU_P4_Op18:
+        Pmat, Qmat = _coeffs_D1_BYU_P4_Op18([0.0])
     else:
         raise ValueError(f"Unsupported derivative type: {dtype}")
 
