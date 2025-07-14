@@ -1,12 +1,12 @@
-Nt = 1000
+Nt = 10000
 Nx = 401
 Ny = 201
-Xmin = -10.0
-Xmax = 10.0
-Ymin = -5.0
-Ymax = 5.0
+Xmin = 0.0
+Xmax = 2.0
+Ymin = 0.0
+Ymax = 1.0
 
-cfl = 0.1
+cfl = 0.25
 D1 = "JP6"
 D2 = "JP6"
 
@@ -26,4 +26,4 @@ id_sigma = 0.5
 
 
 output_dir = "output_maxwell"
-output_interval = 5
+output_interval = 50
