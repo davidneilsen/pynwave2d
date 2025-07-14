@@ -218,7 +218,7 @@ def l2norm(u):
     """
     Compute the L2 norm of an array.
     """
-    return np.sqrt(np.sum(u**2) / u.size)
+    return np.sqrt(np.mean(u**2))
 
 
 @njit
@@ -419,3 +419,60 @@ def linear_interpolation(f, x, x0):
     x1, x2 = x[idx], x[idx + 1]
     f1, f2 = f[idx], f[idx + 1]
     return f1 + (f2 - f1) * (x0 - x1) / (x2 - x1)
+
+
+def write_array(f, array, values_per_line=6):
+    """Write values from an array with line breaks for readability and parser safety."""
+    for i in range(0, len(array), values_per_line):
+        chunk = array[i : i + values_per_line]
+        f.write(" ".join(f"{val:.8e}" for val in chunk) + "\n")
+
+
+def write_vtk_rectilinear_grid(step, data_list, x, y, data_names, time, output_dir):
+    """
+    Write 2D numpy arrays as legacy VTK rectilinear grid (ASCII) for Paraview.
+    """
+    nx = len(x)
+    ny = len(y)
+    npoints = nx * ny
+
+    # Make sure output directory exists
+    # os.makedirs(output_dir, exist_ok=True)
+    filename = f"{output_dir}/maxwell_{step:05d}.vtk"
+
+    with open(filename, "w") as f:
+        f.write("# vtk DataFile Version 3.0\n")
+        f.write("Rectilinear grid data\n")
+        f.write("ASCII\n")
+        f.write("DATASET RECTILINEAR_GRID\n")
+        f.write(f"DIMENSIONS {nx} {ny} 1\n")
+
+        # Coordinates
+        f.write(f"X_COORDINATES {nx} float\n")
+        write_array(f, x)
+
+        f.write(f"Y_COORDINATES {ny} float\n")
+        write_array(f, y)
+
+        f.write("Z_COORDINATES 1 float\n")
+        f.write("0.0\n")
+
+        # Time field (optional)
+        if time is not None:
+            f.write(f"FIELD FieldData 1\n")
+            f.write(f"TIME 1 1 float\n{time:.8e}\n")
+
+        # Point data
+        f.write(f"POINT_DATA {npoints}\n")
+        for arr, name in zip(data_list, data_names):
+            assert arr.shape == (
+                nx,
+                ny,
+            ), f"Data array {name} must have shape ({nx}, {ny})"
+            f.write(f"SCALARS {name} float 1\n")
+            f.write("LOOKUP_TABLE default\n")
+            arr_flat = arr.flatten(order="F")  # VTK expects Fortran-style ordering
+            write_array(f, arr_flat)
+
+        # Ensure a final newline
+        f.write("\n")

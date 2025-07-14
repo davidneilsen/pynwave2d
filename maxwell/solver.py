@@ -31,7 +31,9 @@ def main(parfile):
     elif params["id_type"] == "gaussian":
         bound_cond = "SOMMERFELD"
     else:
-        raise ValueError("Invalid initial condition type. Use 'waveguide' or 'gaussian'.")
+        raise ValueError(
+            "Invalid initial condition type. Use 'waveguide' or 'gaussian'."
+        )
 
     time = 0.0
     eqs = Maxwell2D(3, g, bound_cond)
@@ -48,18 +50,28 @@ def main(parfile):
     dt = params["cfl"] * dx
     rk4 = RK4(eqs, g)
 
-    func_names = eqs.u_names + ["divE", "Ex_exact", "Ey_exact", "Hz_exact", "Ex_error", "Ey_error", "Hz_error"]
+    func_names = eqs.u_names + [
+        "divE",
+        "Ex_exact",
+        "Ey_exact",
+        "Hz_exact",
+        "Ex_error",
+        "Ey_error",
+        "Hz_error",
+    ]
     allfuncs = eqs.u + [divE] + uexact + uerr
     iox.write_hdf5(0, allfuncs, x, y, func_names, output_dir)
+    # write_vtk_rectilinear_grid(0, allfuncs, x, y, func_names, time, output_dir)
 
     Nt = params["Nt"]
     for i in range(1, Nt + 1):
         rk4.step(eqs, g, dt)
         time += dt
-        print(f"Step {i:d}  t={time:.2f}")
+        print(f"Step {i:d}  t={time:.4f}")
         if i % output_interval == 0:
             cal_constraints(eqs.u, divE, uexact, uerr, g, time, params)
             iox.write_hdf5(i, allfuncs, x, y, func_names, output_dir)
+            # write_vtk_rectilinear_grid(i, allfuncs, x, y, func_names, time, output_dir)
 
     iox.write_xdmf(output_dir, Nt, g.shp[0], g.shp[1], func_names, output_interval, dt)
 

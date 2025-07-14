@@ -2,6 +2,7 @@ from .eqs import Equations
 from .grid import Grid
 from .types import *
 from .filters import *
+from .utils import l2norm, write_matrix_to_file
 import numpy as np
 
 
@@ -27,6 +28,8 @@ class RK4:
             self.us.append(np.zeros(tuple(e.shp)))
 
     def step(self, e: Equations, g: Grid, dt):
+        LTRACE = False
+
         nu = len(e.u)
         k1 = self.k1
         k2 = self.k2
@@ -45,6 +48,11 @@ class RK4:
                     rhsfilter = fx
 
         # Stage 1
+        if LTRACE:
+            print(
+                f"@@@ RK1A |Ex|={l2norm(u0[0])}, |Ey|={l2norm(u0[1])}, |Hz|={l2norm(u0[2])}"
+            )
+            write_matrix_to_file("Hz_begin", u0[2])
         e.rhs(k1, u0, g)
         if self.do_rhs_filter:
             for i in range(nu):
@@ -53,8 +61,22 @@ class RK4:
                 k1[i] += wrk
         for i in range(nu):
             us[i][:] = u0[i][:] + 0.5 * dt * k1[i][:]
+
+        if LTRACE:
+            print(
+                f"@@@ RK1B |Ex|={l2norm(us[0])}, |Ey|={l2norm(us[1])}, |Hz|={l2norm(us[2])}"
+            )
+            write_matrix_to_file("Ex_B", us[0])
+            write_matrix_to_file("Ey_B", us[1])
+
         if e.apply_bc == BCType.FUNCTION:
             e.apply_bcs(us, g)
+        if LTRACE:
+            print(
+                f"@@@ RK1C |Ex|={l2norm(us[0])}, |Ey|={l2norm(us[1])}, |Hz|={l2norm(us[2])}"
+            )
+            write_matrix_to_file("Ex_C", us[0])
+            write_matrix_to_file("Ey_C", us[1])
 
         # Stage 2
         e.rhs(k2, us, g)

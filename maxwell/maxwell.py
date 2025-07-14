@@ -60,6 +60,8 @@ class Maxwell2D(Equations):
 
     def initialize(self, g, params):
         if params["id_type"] == "waveguide":
+            if np.abs(g.xi[0][0]) > 1.0e-8 or np.abs(g.xi[1][0]) > 1.0e-8:
+                raise ValueError("Grid must start at (0, 0) for waveguide solution.")
             waveguide_solution(self.u, g, 0.0, params)
         elif params["id_type"] == "gaussian":
             self.gaussian_pulse(g, params)
@@ -90,6 +92,8 @@ class Maxwell2D(Equations):
 
 
 def waveguide_solution(u, g, t, params):
+    # Initial data for a rectangular waveguide mode at the critical frequency.
+    # This is a TE mode solution.
     x = g.xi[0]
     y = g.xi[1]
     B0 = params["id_B0"]
@@ -142,7 +146,10 @@ def cal_constraints(u, divE, uexact, uerr, g, time, params):
 
 
 def bc_waveguide_old(Ex, Ey, Hz):
-    # print("Applying waveguide boundary conditions")
+    """
+    Apply waveguide boundary conditions for a TE mode in a rectangular waveguide.
+    These BCs require the computational domain to be x = [0, a] and y = [0, b].
+    """
 
     Ex[:, 0] = 0.0
     Ey[:, 0] = (
@@ -179,9 +186,17 @@ def bc_waveguide_old(Ex, Ey, Hz):
 
 @njit
 def bc_waveguide(Ex, Ey, Hz):
+    """
+    Apply waveguide boundary conditions for a TE mode in a rectangular waveguide.
+    These BCs require the computational domain to be x = [0, a] and y = [0, b].
+    """
     # print("Applying waveguide boundary conditions")
     nx = Ex.shape[0]
     ny = Ex.shape[1]
+
+    LTRACE = False
+    if LTRACE:
+        print(f"@@@ WG:1 |Ex|={l2norm(Ex)}, |Ey|={l2norm(Ey)}, |Hz|={l2norm(Hz)}")
 
     j = 0
     for i in range(nx):
@@ -246,6 +261,9 @@ def bc_waveguide(Ex, Ey, Hz):
             + 16.0 * Hz[i - 3, j]
             - 3.0 * Hz[i - 4, j]
         ) / 25.0
+
+    if LTRACE:
+        print(f"@@@ WG:2 |Ex|={l2norm(Ex)}, |Ey|={l2norm(Ey)}, |Hz|={l2norm(Hz)}")
 
 
 @njit

@@ -70,6 +70,10 @@ class DerivType(Enum):
     D1_DSQ6B_RIGHT = 27
     D1_BYU_C6_Op10 = 28
     D1_BYU_P4_Op18 = 29
+    D1_E42 = 30
+    D2_E42 = 31
+    D1_E666 = 32
+    D2_E666 = 33
 
 
 class CFDSolve(Enum):
@@ -103,9 +107,11 @@ filter_apply_map = {
 
 d1_type_map = {
     "E4": DerivType.D1_E44,
+    "E42": DerivType.D1_E42,
     "E44": DerivType.D1_E44,
     "E6": DerivType.D1_E642,
     "E642": DerivType.D1_E642,
+    "E666": DerivType.D1_E666,
     "JT4": DerivType.D1_JT4,
     "JT6": DerivType.D1_JT6,
     "JP6": DerivType.D1_JP6,
@@ -123,9 +129,11 @@ d1_type_map = {
 
 d2_type_map = {
     "E4": DerivType.D2_E44,
+    "E42": DerivType.D2_E42,
     "E44": DerivType.D2_E44,
     "E6": DerivType.D2_E642,
     "E642": DerivType.D2_E642,
+    "E666": DerivType.D2_E666,
     "JT4": DerivType.D2_JT4,
     "JT6": DerivType.D2_JT6,
     "JP6": DerivType.D2_JP6,
