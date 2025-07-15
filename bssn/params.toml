@@ -1,20 +1,17 @@
-Nt = 100
+Nt = 10000
 Nx =  10000
 Xmin =-100.0
 Xmax = 100.0
 
 NGhost = 3
-cfl = 0.15
+cfl = 0.10
 eta = 2.0
-D1 = "JP6"
-D2 = "JP6"
+D1 = "E642"
+D2 = "E642"
 
-Filter = "JTT8"
+Filter = "KO6"
 FilterKOsigma = 0.5
 FilterBoundary = true
-FilterApply = "Vars"
-FilterFrequency = 10
-FilterAlpha = 0.4
 
 #Filter = "JTT8"
 #FilterApply = "Vars"
