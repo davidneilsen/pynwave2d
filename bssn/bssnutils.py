@@ -280,3 +280,15 @@ def init_filter(r, params):
                 "init_filter>>  Filter = { KO6, KO8, JTT6, JTP6, JTT8, JTP8, KP4 }"
             )
     return filters
+
+@njit
+def set_bhmask(mask, r, rbh, rout):
+    """
+    Set the BH mask for the grid.
+    The mask is set to 1 for points outside the BH radius and 0 for points inside.
+    """
+    for i in range(len(r)):
+        if np.abs(r[i]) < rbh or np.abs(r[i]) > rout:
+            mask[i] = 0
+        else:
+            mask[i] = 1

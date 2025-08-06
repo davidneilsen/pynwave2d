@@ -95,6 +95,9 @@ def main(parfile):
     eqs.set_ah(rbh, mbh)
     bhpts = int(rbh * len(r) / (r[-1] - r[0]))
     print(f"Horizon(s) found at {rbh:03f} with masses {mbh:03f} and bhpts={bhpts:d}")
+    rmask = 75.0  # Mask outer radius for constraints
+    bhmask = np.ones(Nr, dtype=int)
+    butil.set_bhmask(bhmask, r, rbh, rmask)
 
     step = 0
     fname = f"{output_dir}/bssn_{step:04d}.curve"
@@ -111,8 +114,8 @@ def main(parfile):
     writer.writerow(
         [
             time,
-            l2norm(eqs.C[0][nghost:-nghost]),
-            l2norm(eqs.C[1][nghost:-nghost]),
+            l2norm_mask(eqs.C[0], dr, bhmask),
+            l2norm_mask(eqs.C[1], dr, bhmask),
             rbh,
             mbh,
         ]
@@ -146,13 +149,14 @@ def main(parfile):
             eqs.set_ah(rbh, mbh)
             bhpts = int(rbh * len(r) / (r[-1] - r[0]))
             print(
-                f"Horizon(s) found at {rbh:.03f} with masses {mbh:03f} and bhpts={bhpts:d}."
+                f"Horizon(s) found at {rbh:.03f} with masses {mbh:03f} and pts (radius)={bhpts:d}."
             )
+            butil.set_bhmask(bhmask, r, rbh, rmask)
         if i % print_interval == 0:
-            hamnorm = l2norm(eqs.C[0][nghost:-nghost])
-            momnorm = l2norm(eqs.C[1][nghost:-nghost])
+            hamnorm = l2norm_mask(eqs.C[0], dr, bhmask)
+            momnorm = l2norm_mask(eqs.C[1], dr, bhmask)
             print(
-                f"Step {i:d}, t={time:.2e}, |chi|={l2norm(eqs.u[0]):.2e}, |grr|={l2norm(eqs.u[1]):.2e}, |gtt|={l2norm(eqs.u[2]):.2e}, |Arr|={l2norm(eqs.u[3]):.2e}, |K|={l2norm(eqs.u[4]):.2e}, |Gt|={l2norm(eqs.u[5]):.2e}, |alpha|={l2norm(eqs.u[6]):.2e}, |beta|={l2norm(eqs.u[7]):.2e}, |gB|={l2norm(eqs.u[8]):.2e}, |Ham|={hamnorm:.2e}, |Mom|={momnorm:.2e}"
+                f"Step {i:d}, t={time:.2e}, |chi|={l2norm_mask(eqs.u[0], dr, bhmask):.2e}, |grr|={l2norm_mask(eqs.u[1], dr, bhmask):.2e}, |gtt|={l2norm_mask(eqs.u[2], dr, bhmask):.2e}, |Arr|={l2norm_mask(eqs.u[3], dr, bhmask):.2e}, |K|={l2norm_mask(eqs.u[4], dr, bhmask):.2e}, |Gt|={l2norm_mask(eqs.u[5], dr, bhmask):.2e}, |alpha|={l2norm_mask(eqs.u[6], dr, bhmask):.2e}, |beta|={l2norm_mask(eqs.u[7], dr, bhmask):.2e}, |gB|={l2norm_mask(eqs.u[8], dr, bhmask):.2e}, |Ham|={hamnorm:.2e}, |Mom|={momnorm:.2e}"
             )
             rbh, mbh = eqs.get_ah()
             writer.writerow([time, hamnorm, momnorm, rbh, mbh])

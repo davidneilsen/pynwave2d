@@ -1,4 +1,4 @@
-Nt = 10000
+Nt = 20000
 Nx =  10000
 Xmin =-100.0
 Xmax = 100.0
@@ -8,6 +8,10 @@ cfl = 0.10
 eta = 2.0
 D1 = "E642"
 D2 = "E642"
+
+BHMask = false
+BHMaskPos = 0.0
+BHMaskWidth = 0.02
 
 Filter = "KO6"
 FilterKOsigma = 0.5
@@ -22,10 +26,10 @@ FilterBoundary = true
 
 # initial data types = [ "Puncture", "EddingtonFinkelstein" ]
 Mass = 1.0
-collapsed_lapse = false
+collapsed_lapse = true
 initial_data = "Puncture"
 
 # output parameters
 output_dir = "output_bssn"
-output_interval = 50
-print_interval = 5
+output_interval = 200
+print_interval = 20
