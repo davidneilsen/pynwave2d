@@ -22,6 +22,9 @@ CompactFirstDerivatives = [
     DerivType.D1_DSQ6B_RIGHT,
     DerivType.D1_BYU_C6_Op10,
     DerivType.D1_BYU_P4_Op18,
+    DerivType.D1_C6_4,
+    DerivType.D1_C4_1,
+    DerivType.D1_A4_3
 ]
 CompactSecondDerivatives = [
     DerivType.D2_ME44,
@@ -32,6 +35,9 @@ CompactSecondDerivatives = [
     DerivType.D2_DSQ6A,
     DerivType.D2_DSQ6B,
     DerivType.D2_BYUP6,
+    DerivType.D2_2C4_1,
+    DerivType.D2_2C6_1,
+    DerivType.D2_2A_1
 ]
 CompactExplicitDerivatives = [
     DerivType.D1_ME44,
@@ -933,6 +939,318 @@ def _coeffs_D1_BYU_P4_Op18(D_coeffs):
     Rmat = [Q1DiagInterior, Q1DiagBoundary, (3, 3), 1]
     return Lmat, Rmat
 
+# The following operators were added by Luke
+def _coeffs_D1_C6_4():
+    alpha0 = 0.4963477370017426
+    alpha = alpha0
+    beta = 0.04075360091710232
+    a1 = 0.723439643221641
+    a2 = 0.15683084734860173
+    gamma01 =  - 1.2310441501678786
+    gamma02 =  - 7.846566219762
+    gamma10 = 0.16123050668544858
+    gamma12 = 0.4741493035858441
+    gamma13 =  - 0.038978437534430796
+    a00 =  - 2.4294528173078316
+    a01 = 10.25691429353829
+    a02 =  - 4.84656624284059
+    a03 =  - 3.282188754146896
+    a04 = 0.3012935069894299
+    a10 =  - 0.5431362438346228
+    a11 =  - 0.5240000610825333
+    a12 = 1.0747761362453676
+    a13 =  - 0.0014084866408688862
+    a14 =  - 0.006231344687109832
+
+    # boundary elements for P matrix for 1st derivative
+    P1DiagBoundary = [
+        np.array([1.0, gamma01, gamma02]),
+        np.array([gamma10, 1.0, gamma12, gamma13]),
+    ]
+
+    # diagonal elements for P matrix for 1st derivative
+    P1DiagInterior = np.array([beta, alpha, 1.0, alpha, beta])
+
+    # boundary elements for Q matrix for 1st derivative
+    Q1DiagBoundary = [
+        np.array([a00, a01, a02, a03, a04]),
+        np.array([a10, a11, a12, a13, a14])
+    ]
+
+    # diagonal elements for Q matrix for 1st derivative
+    Q1DiagInterior = np.array([-a2, -a1, 0.0, a1, a2])
+
+    Lmat = [P1DiagInterior, P1DiagBoundary, (2, 2), -1]
+    Rmat = [Q1DiagInterior, Q1DiagBoundary, (2, 2), 1]
+    return Lmat, Rmat
+
+def _coeffs_D1_C4_1():
+    alpha0 = 0.5362930888943283
+    alpha = alpha0
+
+    beta = 0.05831696520179083
+    a1 = 0.6899191224266673
+    a2 = 0.20234546583472587
+    gamma01 = 5.887245740617931
+    gamma02 = 3.4740401606206683
+    gamma10 = 0.0481407122009377
+    gamma12 = 1.7713756159896565
+    gamma13 = 0.4570840961794273
+    a00 =  - 3.26564142176947
+    a01 =  - 3.222064890928744
+    a02 = 5.830868610926915
+    a03 = 0.705737236775412
+    a04 =  - 0.04889953500022839
+    a10 =  - 0.24076885710110105
+    a11 =  - 1.593145513766301
+    a12 = 0.6699517191280673
+    a13 = 1.1260081070772001
+    a14 = 0.03795454466215297
+
+    # boundary elements for P matrix for 1st derivative
+    P1DiagBoundary = [
+        np.array([1.0, gamma01, gamma02]),
+        np.array([gamma10, 1.0, gamma12, gamma13]),
+    ]
+
+    # diagonal elements for P matrix for 1st derivative
+    P1DiagInterior = np.array([beta, alpha, 1.0, alpha, beta])
+
+    # boundary elements for Q matrix for 1st derivative
+    Q1DiagBoundary = [
+        np.array([a00, a01, a02, a03, a04]),
+        np.array([a10, a11, a12, a13, a14])
+    ]
+
+    # diagonal elements for Q matrix for 1st derivative
+    Q1DiagInterior = np.array([-a2, -a1, 0.0, a1, a2])
+
+    Lmat = [P1DiagInterior, P1DiagBoundary, (2, 2), -1]
+    Rmat = [Q1DiagInterior, Q1DiagBoundary, (2, 2), 1]
+    return Lmat, Rmat
+
+def _coeffs_D1_A4_3():
+    alpha0 = 0.5770460201292381
+    alpha = alpha0 
+
+    beta = 0.08900836845092142
+    a1 = 0.6517078440898839
+    a2 = 0.24815882627035918
+    a3 = 0.006009630649852392
+    gamma01 = 11.720569036874554
+    gamma02 = 15.554462579626016
+    gamma10 = 0.1081072833795741
+    gamma12 = 0.9879415284429277
+    gamma13 =  - 0.019091049862053604
+    gamma20 = 0.001594503696184088
+    gamma21 = 0.11896661542190605
+    gamma23 = 1.4712607824914257
+    gamma24 = 0.39065672002582436
+    a00 =  - 3.869256849728272
+    a01 =  - 15.34137988312291
+    a02 = 12.883637155318173
+    a03 = 7.717258677339867
+    a04 =  - 1.6841269756473085
+    a05 = 0.32933821713218175
+    a06 =  - 0.035470348869858045
+    a10 =  - 0.3964964225533291
+    a11 =  - 1.0420535477054953
+    a12 = 1.1470798670545719
+    a13 = 0.3494082667125378
+    a14 =  - 0.06737997031063933
+    a15 = 0.010504184266465403
+    a16 =  - 0.0010623774453651048
+    a20 =  - 0.008283084846223839
+    a21 =  - 0.3750015455221021
+    a22 =  - 1.2054305952790025
+    a23 = 0.6249651589579047
+    a24 = 0.9236932467174234
+    a25 = 0.04166802585994469
+    a26 =  - 0.0016112058874788778
+
+    # boundary elements for P matrix for 1st derivative
+    P1DiagBoundary = [
+        np.array([1.0, gamma01, gamma02]),
+        np.array([gamma10, 1.0, gamma12, gamma13]),
+        np.array([gamma20, gamma21, 1.0, gamma23, gamma24])
+    ]
+
+    # diagonal elements for P matrix for 1st derivative
+    P1DiagInterior = np.array([beta, alpha, 1.0, alpha, beta])
+
+    # boundary elements for Q matrix for 1st derivative
+    Q1DiagBoundary = [
+        np.array([a00, a01, a02, a03, a04, a05, a06]),
+        np.array([a10, a11, a12, a13, a14, a15, a16]),
+        np.array([a20, a21, a22, a23, a24, a25, a26])
+    ]
+
+    # diagonal elements for Q matrix for 1st derivative
+    Q1DiagInterior = np.array([-a3, -a2, -a1, 0.0, a1, a2, a3])
+
+    Lmat = [P1DiagInterior, P1DiagBoundary, (2, 2), -1]
+    Rmat = [Q1DiagInterior, Q1DiagBoundary, (3, 3), 1]
+    return Lmat, Rmat
+
+
+def _coeffs_D2_2C4_1():
+    alpha0 = 0.39755582066409934
+    alpha = alpha0
+
+    beta = 0.021185375111255712
+    a1 = 0.5207872376311244
+    a2 = 0.32917378847989637
+    gamma01 = 8.684466815062526
+    gamma02 = 5.2334494385813395
+    gamma10 =  - 0.2908610497433836
+    gamma12 = 19.151728922470173
+    gamma13 = 3.7205127814515646
+    a00 = 10.44130712725852
+    a01 =  - 16.162845440315607
+    a02 = 0.758609811076265
+    a03 = 5.206088189802421
+    a04 =  - 0.24315968780464542
+    a10 =  - 1.8376982037450174
+    a11 = 27.629938588220078
+    a12 =  - 48.28224588801183
+    a13 = 21.025468826343424
+    a14 = 1.4645366771933166
+
+    # boundary elements for P matrix for 1st derivative
+    P1DiagBoundary = [
+        np.array([1.0, gamma01, gamma02]),
+        np.array([gamma10, 1.0, gamma12, gamma13])
+    ]
+
+    # diagonal elements for P matrix for 1st derivative
+    P1DiagInterior = np.array([beta, alpha, 1.0, alpha, beta])
+
+    # boundary elements for Q matrix for 1st derivative
+    Q1DiagBoundary = [
+        np.array([a00, a01, a02, a03, a04]),
+        np.array([a10, a11, a12, a13, a14])
+    ]
+
+    t1 = -2.0 * (a1 + a2)
+
+    # diagonal elements for Q matrix for 1st derivative
+    Q1DiagInterior = np.array([a2, a1, t1, a1, a2])
+
+    Lmat = [P1DiagInterior, P1DiagBoundary, (2, 2), 1]
+    Rmat = [Q1DiagInterior, Q1DiagBoundary, (2, 2), 1]
+    return Lmat, Rmat
+
+def _coeffs_D2_2C6_1():
+    alpha0 = 0.3552519833863128
+    alpha = alpha0 
+
+    beta = 0.015385256590721305
+    a1 = 0.6545272676086319
+    a2 = 0.27168680308635906
+    gamma01 = 8.389045509463868
+    gamma02 = 4.997784937575292
+    gamma10 = 0.07252339307985996
+    gamma12 = 2.274638288052355
+    gamma13 = 0.3624606194793401
+    a00 = 10.190142972214264
+    a01 =  - 15.984695932338362
+    a02 = 1.2000604108003015
+    a03 = 4.793395086593271
+    a04 =  - 0.19890253725298698
+    a10 = 0.9084349875219685
+    a11 = 0.8584685172041276
+    a12 =  - 4.316393176132551
+    a13 = 2.423640850564837
+    a14 = 0.12584882084157425
+
+    # boundary elements for P matrix for 1st derivative
+    P1DiagBoundary = [
+        np.array([1.0, gamma01, gamma02]),
+        np.array([gamma10, 1.0, gamma12, gamma13])
+    ]
+
+    # diagonal elements for P matrix for 1st derivative
+    P1DiagInterior = np.array([beta, alpha, 1.0, alpha, beta])
+
+    # boundary elements for Q matrix for 1st derivative
+    Q1DiagBoundary = [
+        np.array([a00, a01, a02, a03, a04]),
+        np.array([a10, a11, a12, a13, a14])
+    ]
+
+    t1 = -2.0 * (a1 + a2)
+
+    # diagonal elements for Q matrix for 1st derivative
+    Q1DiagInterior = np.array([a2, a1, t1, a1, a2])
+
+    Lmat = [P1DiagInterior, P1DiagBoundary, (2, 2), 1]
+    Rmat = [Q1DiagInterior, Q1DiagBoundary, (2, 2), 1]
+    return Lmat, Rmat
+
+def _coeffs_D2_2A_1():
+    alpha0 = 0.4917593294116515
+    alpha = alpha0 
+    beta = 0.052107304747970096
+    a1 = 0.2456096922476715
+    a2 = 0.42112296480247163
+    a3 = 0.017514635206853885
+    gamma01 = 12.591315362048217
+    gamma02 = 15.084784378502926
+    gamma10 = 0.053356389606600524
+    gamma12 = 2.354755322703094
+    gamma13 = 0.6916927010503097
+    gamma20 = 0.01459587668090503
+    gamma21 = 0.3251836724513594
+    gamma23 = 0.6353132625404602
+    gamma24 = 0.09603512518086209
+    a00 = 12.874331545332872
+    a01 =  - 7.791236348900909
+    a02 =  - 25.746221106082196
+    a03 = 24.030231590355
+    a04 =  - 4.139878085038264
+    a05 = 0.8841382958263313
+    a06 =  - 0.11136589149817189
+    a10 = 0.8369729348468714
+    a11 = 1.1485958676212564
+    a12 =  - 4.349701163379025
+    a13 = 1.8878205985135512
+    a14 = 0.49399689902406285
+    a15 =  - 0.01746788736710351
+    a16 =  - 0.00021724928766294311
+    a20 = 0.24876323785361718
+    a21 = 0.6483433806079487
+    a22 =  - 1.4133854015241178
+    a23 =  - 0.06478123358362578
+    a24 = 0.5309016728653824
+    a25 = 0.051785630955101844
+    a26 =  - 0.0016272871743160185
+
+    # boundary elements for P matrix for 1st derivative
+    P1DiagBoundary = [
+        np.array([1.0, gamma01, gamma02]),
+        np.array([gamma10, 1.0, gamma12, gamma13]),
+        np.array([gamma20, gamma21, 1.0, gamma23, gamma24])
+    ]
+
+    # diagonal elements for P matrix for 1st derivative
+    P1DiagInterior = np.array([beta, alpha, 1.0, alpha, beta])
+
+    # boundary elements for Q matrix for 1st derivative
+    Q1DiagBoundary = [
+        np.array([a00, a01, a02, a03, a04, a05, a06]),
+        np.array([a10, a11, a12, a13, a14, a15, a16]),
+        np.array([a20, a21, a22, a23, a24, a25, a26])
+    ]
+
+    t1 = -2.0 * (a1 + a2 + a3)
+
+    # diagonal elements for Q matrix for 1st derivative
+    Q1DiagInterior = np.array([a3, a2, a1, t1, a1, a2, a3])
+
+    Lmat = [P1DiagInterior, P1DiagBoundary, (2, 2), 1]
+    Rmat = [Q1DiagInterior, Q1DiagBoundary, (3, 3), 1]
+    return Lmat, Rmat
+
 
 def build_derivative(N: int, dtype: DerivType):
     """
@@ -987,6 +1305,18 @@ def build_derivative(N: int, dtype: DerivType):
         Pmat, Qmat = _coeffs_D1_BYU_C6_Op10([0.0])
     elif dtype == DerivType.D1_BYU_P4_Op18:
         Pmat, Qmat = _coeffs_D1_BYU_P4_Op18([0.0])
+    elif dtype == DerivType.D1_C6_4:
+        Pmat, Qmat = _coeffs_D1_C6_4()
+    elif dtype == DerivType.D1_C4_1:
+        Pmat, Qmat = _coeffs_D1_C4_1()
+    elif dtype == DerivType.D1_A4_3:
+        Pmat, Qmat = _coeffs_D1_A4_3()
+    elif dtype == DerivType.D2_2C4_1:
+        Pmat, Qmat = _coeffs_D2_2C4_1()
+    elif dtype == DerivType.D2_2C6_1:
+        Pmat, Qmat = _coeffs_D2_2C6_1()
+    elif dtype == DerivType.D2_2A_1:
+        Pmat, Qmat = _coeffs_D2_2A_1()
     else:
         raise ValueError(f"Unsupported derivative type: {dtype}")
 

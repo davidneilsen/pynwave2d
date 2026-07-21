@@ -63,6 +63,10 @@ def main(parfile):
 
     # GBSSN system: (sys, lapse advection, shift advection)
     #    sys = 0 (Eulerian), 1 (Lagrangian)
+    bssn_outer_bc_str = params.get("bssn_outer_bc", "Sommerfeld")
+    bssn_outer_bc = butil.get_bssn_outer_bc(bssn_outer_bc_str)
+    #bssn_outer_bc_sponge_width = params.get("bssn_outer_bc_sponge_width", 20.0)
+
     sys = bssn.GBSSNSystem(1, 1, 1)
     eqs = bssn.BSSN(
         g,
@@ -71,6 +75,7 @@ def main(parfile):
         extended_domain,
         BCType.FUNCTION,
         sys,
+        outer_bc=bssn_outer_bc,
         have_d2=True,
     )
     eqs.initialize(g, params)
@@ -95,7 +100,7 @@ def main(parfile):
     eqs.set_ah(rbh, mbh)
     bhpts = int(rbh * len(r) / (r[-1] - r[0]))
     print(f"Horizon(s) found at {rbh:03f} with masses {mbh:03f} and bhpts={bhpts:d}")
-    rmask = 75.0  # Mask outer radius for constraints
+    rmask = params.get("bhmask_outer_radius", 75.0)
     bhmask = np.ones(Nr, dtype=int)
     butil.set_bhmask(bhmask, r, rbh, rmask)
 

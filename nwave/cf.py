@@ -184,7 +184,7 @@ class NCompactFilter(Filter1D):
             )
         else:
             raise ValueError(
-                f"Unsupported filter application type: {self.apply_filter}"
+                f"Unsupported filter method type: {self.method} for {self.filter_type}"
             )
 
         return u_f

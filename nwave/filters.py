@@ -54,6 +54,29 @@ class Filter2D(ABC):
     def get_frequency(self):
         return self.frequency
 
+class FilterNone_1D(Filter1D):
+    """
+    Class for an empty filter
+    """
+    def __init__(self):
+        self.filter_type = FilterType.NONE
+        self.apply_filter = FilterApply.NONE
+        self.frequency = 0
+        super().__init__(0.1, FilterApply.NONE, FilterType.NONE, 0)
+
+    def filter(self, u) -> np.ndarray:
+        raise ValueError("Filter type None is being called.  Should not happen.")
+
+    def get_filter_type(self):
+        return self.filter_type
+
+    def get_apply_filter(self):
+        return self.apply_filter
+
+    def get_frequency(self):
+        return self.frequency
+
+
 class KreissOligerFilterO6_1D(Filter1D):
     """
     Kreiss-Oliger filter in 1D

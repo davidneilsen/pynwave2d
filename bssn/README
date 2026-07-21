@@ -1,0 +1,27 @@
+To Do
+--------------
+
++ Test explicit 642 derivs
++ Test advection derivs
++ remove ghost points for output
++ convergence test RK4
++ What's the accuracy gain?
++ Speed test of matrix solver methods
++ Add option to filter derivs.
++ Add option for multiple filters
++ Build compact advective deriv.
++ Convergence testing all around
++ Check derivs of all BSSN functions in test scripts
++ Comment and label test scripts
+
+
+
+Done
+--------------
++ Validate the RHS using ingoing-EF data
++ Put in extended domain
++ output log grid
++ Make advective derivs more efficient using NUMBA
++ Sommerfeld outer boundary conditions
++ Add KO dissipation
++ Add option to mask constraints near punctures

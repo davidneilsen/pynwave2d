@@ -14,9 +14,9 @@ DEBUG = False
 def func1(x):
     k1 = 11.0
     k2 = 7.0
-    f = np.cos(x) + np.sin(k1 * x)
-    dxf = k1 * np.cos(k1 * x) - np.sin(x)
-    dxxf = -np.cos(x) - k1**2 * np.sin(k1 * x)
+    f = np.cos(k2 * x) + np.sin(k1 * x)
+    dxf = k1 * np.cos(k1 * x) - k2 * np.sin(k2 * x)
+    dxxf = -k2**2 * np.cos(k2 * x) - k1**2 * np.sin(k1 * x)
     return f, dxf, dxxf
 
 
@@ -46,9 +46,9 @@ def func3(x):
 #    params = tomllib.load(f)
 
 nx0 = 14
-level = 8
+level = 2
 nx = int((2**level)*nx0 + 1)
-params = { "Nx": nx, "Xmin": -4.0, "Xmax": 4.0 }
+params = { "Nx": nx, "Xmin": -1.0, "Xmax": 3.0 }
 
 g = Grid1D(params)
 dx = g.dx[0]
@@ -57,72 +57,64 @@ x = g.xi[0]
 D1 = ExplicitFirst642_1D(dx)
 D2 = ExplicitSecond642_1D(dx)
 
-derivs = [ 
-    DerivType.D1_KP4,
-    DerivType.D1_ME44,
-    DerivType.D1_ME642,
-    DerivType.D1_JT4,
-    DerivType.D1_JT6,
-    DerivType.D1_JP6,
-    DerivType.D1_DSQ6A,
-    DerivType.D1_DSQ6B,
-    DerivType.D1_Wm6,
-    DerivType.D1_DSQ6B_LEFT,
-    DerivType.D1_DSQ6B_RIGHT
-]
 dnames = [ 
-    "D1_KP4",
-    "D1_ME44",
-    "D1_ME642",
-    "D1_JT4",
-    "D1_JT6",
-    "D1_JP6",
-    "D1_DSQ6A",
-    "D1_DSQ6B",
-    "D1_Wm6",
-    "D1_DSQ6B_LEFT",
-    "D1_DSQ6B_RIGHT"
-]
-
-derivs2 = [
-    DerivType.D2_ME44,
-    DerivType.D2_ME642,
-    DerivType.D2_JT4,
-    DerivType.D2_JP6,
-    DerivType.D2_DSQ6A,
-    DerivType.D2_DSQ6B
+    "ME44",
+    "ME642",
+    "JT4",
+#    "JT6",
+    "JP6",
+#    "DSQ6A",
+#    "DSQ6B",
+    "BYUP4_Op18",
+    "BYUC6_Op10",
 ]
 
 dnames2 = [
-    "D2_ME44",
-    "D2_ME642",
-    "D2_JT4",
-    "D2_JP6",
-    "D2_DSQ6A",
-    "D2_DSQ6B"
+    "ME44",
+    "ME642",
+    "JT4",
+    "JP6",
+#    "DSQ6A",
+#    "DSQ6B"
 ]
 
 
-f, dxf, dxxf = func3(x)
+f, dxf, dxxf = func1(x)
+
+fig, ax = plt.subplots()
+ax.plot(x, f, marker=".", label="f")
+#ax.plot(x, dxf, marker=".", label="dxf")
+#ax.plot(x, dxxf, marker=".", label="dxxf")
+plt.legend()
+plt.title("f")
+plt.savefig("func.pdf")
+plt.show()
 
 #--------------------------------
 #  First Derivatives
 #--------------------------------
 fig, ax = plt.subplots()
 
-for dd, dn in zip(derivs, dnames):
+#CD = NCompactDerivative.deriv(x, DerivType.D1_KP4, CFDSolve.SCIPY)
+#CDxf = CD.grad(f)
+#err = np.abs(CDxf - dxf)
+#ax.semilogy(x, err, marker=".", label="KP4")
+
+for dn in dnames:
+    dd = d1_type_map[dn]
     print(f"...constructing {dn}")
     CD = NCompactDerivative.deriv(x, dd, CFDSolve.SCIPY)
     CDxf = CD.grad(f)
     err = np.abs(CDxf - dxf)
     ax.semilogy(x, err, marker=".", label=dn)
 
-ax.axvline(-1.0, ls='--', c='0.6')
-ax.axvline(-0.5, ls='-', c='0.8')
-ax.axvline(0.5, ls='-', c='0.8')
-ax.axvline(1.0, ls='--', c='0.6')
-plt.legend()
+#ax.axvline(-1.0, ls='--', c='0.6')
+#ax.axvline(-0.5, ls='-', c='0.8')
+#ax.axvline(0.5, ls='-', c='0.8')
+#ax.axvline(1.0, ls='--', c='0.6')
+plt.legend(ncol=2)
 plt.title("Error dxf 1D (x)")
+plt.savefig("d1_err.pdf")
 plt.show()
 
 #--------------------------------
@@ -130,27 +122,30 @@ plt.show()
 #--------------------------------
 fig, ax = plt.subplots()
 
-CD = NCompactDerivative.deriv(x, DerivType.D1_KP4, CFDSolve.SCIPY)
-CDxf = CD.grad(f)
-CDxxf = CD.grad(CDxf)
-err = np.abs(CDxxf - dxxf)
-ax.semilogy(x, err, marker=".", label="D1_KP4^2")
+#CD = NCompactDerivative.deriv(x, DerivType.D1_KP4, CFDSolve.SCIPY)
+#CDxf = CD.grad(f)
+#CDxxf = CD.grad(CDxf)
+#err = np.abs(CDxxf - dxxf)
+#ax.semilogy(x, err, marker=".", label="D1_KP4^2")
 
-for dd, dn in zip(derivs2, dnames2):
+for dn in dnames2:
+    dd = d2_type_map[dn]
     print(f"...constructing {dn}")
     CD = NCompactDerivative.deriv(x, dd, CFDSolve.SCIPY)
     CDxf = CD.grad(f)
     err = np.abs(CDxf - dxxf)
     ax.semilogy(x, err, marker=".", label=dn)
 
-ax.axvline(-1.0, ls='--', c='0.6')
-ax.axvline(-0.5, ls='-', c='0.8')
-ax.axvline(0.5, ls='-', c='0.8')
-ax.axvline(1.0, ls='--', c='0.6')
-plt.legend()
+#ax.axvline(-1.0, ls='--', c='0.6')
+#ax.axvline(-0.5, ls='-', c='0.8')
+#ax.axvline(0.5, ls='-', c='0.8')
+#ax.axvline(1.0, ls='--', c='0.6')
+plt.legend(ncol=2)
 plt.title("Error dxxf 1D (x)")
+plt.savefig("d2_err.pdf")
 plt.show()
 
+"""
 #--------------------------------
 #  Excision Derivatives
 #--------------------------------
@@ -174,6 +169,8 @@ ax.axvline(1.0, ls='--', c='0.6')
 plt.legend()
 plt.title("Error dxf with excision 1D (x)")
 plt.show()
+"""
+
 
 
 
@@ -209,3 +206,4 @@ plt.legend()
 plt.title("Error dxf 1D (x)")
 plt.show()
 """
+

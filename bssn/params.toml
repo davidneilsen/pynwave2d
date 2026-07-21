@@ -1,4 +1,4 @@
-Nt = 20000
+Nt = 25000
 Nx =  10000
 Xmin =-100.0
 Xmax = 100.0
@@ -6,16 +6,13 @@ Xmax = 100.0
 NGhost = 3
 cfl = 0.10
 eta = 2.0
-D1 = "E642"
-D2 = "E642"
+D1 = ["JP6", "ME6"]
+D2 = ["JP6", "ME6"]
 
-BHMask = false
+BHMask = true
 BHMaskPos = 0.0
-BHMaskWidth = 0.02
+BHMaskWidth = 0.05
 
-Filter = "KO6"
-FilterKOsigma = 0.5
-FilterBoundary = true
 
 #Filter = "JTT8"
 #FilterApply = "Vars"
@@ -33,3 +30,10 @@ initial_data = "Puncture"
 output_dir = "output_bssn"
 output_interval = 200
 print_interval = 20
+
+# --- dissipation filter (interior-only; boundary terms off) ---
+[[filters]]
+type = "KO6"
+apply = "Rhs"
+sigma = 0.5
+filter_boundary = false

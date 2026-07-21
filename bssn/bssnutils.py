@@ -7,6 +7,12 @@ import os
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from nwave import *
+import bssneqs as bssn
+
+
+class ConfigError(Exception):
+    """Raised for invalid parameter-file configuration."""
+    pass
 
 
 def write_curve(filename, time, x, eqs):
@@ -112,6 +118,11 @@ def get_cfd_solve(d_str):
     except KeyError:
         raise ValueError(f"Unknown Deriv Solve type string: '{d_str}'")
 
+def get_bssn_outer_bc(d_str):
+    try:
+        return bssn.bssn_outer_bc_map[d_str]
+    except KeyError:
+        raise ValueError(f"Unknown BSSN outer bc type string: '{d_str}'")
 
 def init_derivative_operators(r, params):
     d1_param = params["D1"]
@@ -208,8 +219,110 @@ def init_derivative_operators(r, params):
 
     return D1, D2
 
+def _require(dct: dict[str, Any], key: str, kind: str = "entry"):
+    if key not in dct:
+        raise ConfigError(f"Missing required field '{key}' in {kind}.")
+    return dct[key]
+
+def parse_filter_entry(entry: dict[str, Any], r) -> Filter1D:
+    if not isinstance(entry, dict):
+        raise ConfigError(f"Each filter entry must be a table/dict, got {type(entry).__name__}.")
+
+    dr = r[1] - r[0]
+    ftype_str = _require(entry, "type", "filter type")
+    ftype = get_filter_type(ftype_str)
+    fapply_str = _require(entry, "apply", "filter apply")
+    fapply = get_filter_apply(fapply_str)
+    fsolve_str = entry.get("solve_method", "None")
+    fsolve = get_cfd_solve(fsolve_str)
+    fbounds = entry.get("filter_boundary", False)
+    ffreq = int(entry.get("frequency", 1))
+    if ffreq < 0:
+        raise ValueError(f"Filter: 'frequency' must be 0 or positive if provided.")
+
+    if ftype == FilterType.KREISS_OLIGER_O6:
+        sigma = entry.get("sigma", 0.1)
+        bssn_filter = KreissOligerFilterO6_1D(dr, sigma, filter_boundary=fbounds)
+        return bssn_filter
+    elif ftype == FilterType.KREISS_OLIGER_O8:
+        sigma = entry.get("sigma", 0.1)
+        bssn_filter = KreissOligerFilterO8_1D(dr, sigma, filter_boundary=fbounds)
+        return bssn_filter
+    elif ftype in CompactFilterTypes:
+        alpha = entry.get("alpha", 0.0)
+        beta = entry.get("beta", 0.0)
+        mask_bh = False
+        if mask_bh:
+            #mask_pos = params.get("BHMaskPos", 0.0)
+            #mask_width = params.get("BHMaskWidth", 0.1)
+            mask_pos = 0.0
+            mask_width = 0.1
+            print(
+                f"init_filter>> Creating BH masked filter: Background type: {ftype}, apply: {fapply}, method: {fmethod}"
+            )
+            print(
+                f"init_derivative_operators>> BH Mask. position: {mask_pos}, width: {mask_width}"
+            )
+            bssn_filter = NCompactFilter.init_bh_filter(
+                r,
+                ftype,
+                fapply,
+                fsolve,
+                ffreq,
+                mask_pos,
+                mask_width,
+                fbounds,
+                alpha,
+                beta,
+            )
+            return bssn_filter
+        else:
+            print(
+                f"init_filter>> Creating filter: type: {ftype}, apply: {fapply}, method: {fsolve}"
+            )
+            bssn_filter = NCompactFilter.init_filter(
+                r, ftype, fapply, fsolve, ffreq, fbounds, alpha, beta
+            )
+            return bssn_filter
+    elif ftype == FilterType.NONE:
+        pass
+    else:
+        raise NotImplementedError(
+            "init_filter>>  Filter = { KO6, KO8, JTT6, JTP6, JTT8, JTP8, KP4 }"
+        )
+
 
 def init_filter(r, params):
+    parsed: list[Filter1D] = []
+    if "filters" not in params:
+        # Pure [[filters]] design: scalar Filter= keys are no longer supported.
+        # Fail loudly rather than silently run unfiltered — the silent-none trap
+        # invalidated an entire operator sweep. Migrate to a [[filters]] block.
+        legacy = params.get("Filter", None)
+        if isinstance(legacy, str) and legacy != "None":
+            raise ConfigError(
+                "Scalar 'Filter=' keys are no longer read. Use a [[filters]] "
+                "array block instead, e.g.:\n"
+                '[[filters]]\ntype = "KO8"\napply = "Rhs"\nsigma = 0.4\n'
+                "filter_boundary = false"
+            )
+        parsed.append(FilterNone_1D())
+        return parsed
+
+    farray = params["filters"]
+    if not isinstance(farray, list):
+        raise ConfigError("'filters' must be an array of tables ([[filters]]).")
+
+    for i, entry in enumerate(farray):
+        spec = parse_filter_entry(entry, r)
+        parsed.append(spec)
+
+    return parsed
+
+    
+
+
+def Xinit_filter(r, params):
     f_param = params.get("Filter", "None")
 
     if isinstance(f_param, str):

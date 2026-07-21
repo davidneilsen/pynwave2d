@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import os
 import csv
+from enum import Enum
 from numba import njit
 
 # Add the parent directory to sys.path
@@ -10,6 +11,18 @@ from nwave import *
 
 DEBUG = False
 
+class BSSNOuterBCType(Enum):
+    """
+    Enum for outer boundary condition
+    """
+    NONE = 0
+    SOMMERFELD = 1
+    SPONGE = 2
+
+bssn_outer_bc_map = {
+    "Sommerfeld" : BSSNOuterBCType.SOMMERFELD,
+    "Sponge" : BSSNOuterBCType.SPONGE,
+}
 
 class GBSSNSystem:
     """
@@ -53,6 +66,7 @@ class BSSN(Equations):
         extended_domain,
         apply_bc=None,
         gbssn_system=GBSSNSystem(1, 1, 1),
+        outer_bc=BSSNOuterBCType.SOMMERFELD,
         have_d2=True,
     ):
         """
@@ -69,6 +83,7 @@ class BSSN(Equations):
             If "FUNCTION", apply the boundary conditions using the function in each post-RK step.
         gbssn_system : GBSSNSystem
             System of equations to use.
+        outer_bc : outer boundary condition type
         """
 
         NU = 9
@@ -103,6 +118,7 @@ class BSSN(Equations):
         self.GAMCON = 2
         self.u_names = ["chi", "grr", "gtt", "Arr", "K", "Gt", "alpha", "beta", "gB"]
         self.c_names = ["ham", "mom", "gamcom"]
+        self.outer_bc = outer_bc
         self.u_falloff = [
             1,
             1,
@@ -125,6 +141,31 @@ class BSSN(Equations):
             0,
             0,
         ]  # alpha, beta, gB
+        # Outer-boundary characteristic (wave) speeds per field, from Brown's
+        # GBSSN characteristic analysis (papers/BrownSpherical/paper2.tex:370-404).
+        # Proper speeds: physical/gravitational modes = 1; the 1+log gauge (lapse)
+        # mode = sqrt(2/alpha); shift (Lagrangian Gamma-driver, case L^+_+) =
+        # sqrt(1/(alpha^2 chi)). The radiative BC is only valid as r->inf, where
+        # alpha->1, chi->1, g_rr->1, so all reduce to: v=1 for the geometric
+        # fields and v=sqrt(2) for the lapse (sqrt(2/alpha)->sqrt2).
+        self.u_wavespeed = np.ones(len(self.u_names))
+        self.u_wavespeed[self.U_ALPHA] = np.sqrt(2.0)
+        # u_reference is the reference solution at the outer boundary
+        # for a sponge filter.
+        r = g.xi[0]
+        rmax = r[-1]
+        self.u_reference = np.zeros(NU)
+        self.u_reference[self.U_ALPHA] = 1.0 / (1.0 + self.M / (2 * abs(rmax))) ** 2
+        self.u_reference[self.U_CHI] = 1.0 / (1.0 + self.M / (2 * abs(rmax))) ** (4)
+        self.u_reference[self.U_GRR] = 1.0
+        self.u_reference[self.U_GTT] = rmax**2
+        self.u_reference[self.U_GT] = -2.0 / rmax
+
+        self.u_parity = np.ones(NU)
+        self.u_parity[self.U_GT] = -1.0
+        self.u_parity[self.U_SHIFT] = -1.0
+        self.u_parity[self.U_GB] = -1.0
+
 
     def get_r_horizon(self):
         return self.r_horizon
@@ -146,6 +187,7 @@ class BSSN(Equations):
         """
         if params["initial_data"] == "Puncture":
             self.initial_data_puncture(g, params)
+            self.reference_solution = []
         elif params["initial_data"] == "EddingtonFinkelstein":
             if self.gbssn_system.eqs == 0:
                 raise ValueError(
@@ -420,29 +462,56 @@ class BSSN(Equations):
         )
 
         # Apply outer boundary conditions at r = rmax
-        ng = g.nghost
-        dxu = [
-            d_chi,
-            d_g_rr,
-            d_g_tt,
-            ad_A_rr,
-            d_K,
-            d_Gamma_r,
-            d_alpha,
-            d_beta_r,
-            ad_B_r,
-        ]
-        for m in range(len(u)):
-            BSSN.bc_sommerfeld(
-                dtu[m],
-                u[m],
-                dxu[m],
-                r,
-                self.u_falloff[m],
-                self.u_inf[m],
-                ng,
-                self.extended_domain,
-            )
+        if (self.outer_bc == BSSNOuterBCType.SOMMERFELD):
+            ng = g.nghost
+            dxu = [
+                d_chi,
+                d_g_rr,
+                d_g_tt,
+                ad_A_rr,
+                d_K,
+                d_Gamma_r,
+                d_alpha,
+                d_beta_r,
+                ad_B_r,
+            ]
+            for m in range(len(u)):
+                BSSN.bc_sommerfeld(
+                    dtu[m],
+                    u[m],
+                    dxu[m],
+                    r,
+                    self.u_falloff[m],
+                    self.u_inf[m],
+                    self.u_wavespeed[m],
+                    ng,
+                    self.extended_domain,
+                )
+        elif (self.outer_bc  == BSSNOuterBCType.SPONGE):
+            width = 20.0
+            rmax = r[-1]
+            gamma_0 = 1.0
+            sigma = width / 3.0
+            #rstart = rmax - width
+            #idx_right = np.searchsorted(r, rstart)
+
+            # smooth cosine sponge
+            # gamma = gamma_0 * np.sin(0.5*np.pi*xnorm)**2
+            gamma = gamma_0*np.exp(-((r - rmax)/sigma)**2)
+
+            imid = int(len(r)/2)
+            for m in range(len(u)):
+                dtu[m][imid:] -=  gamma[imid:]*(u[m][imid:] - self.u_reference[m])
+
+            if self.extended_domain:
+                rmin = r[0]
+                gamma[0:imid] += gamma_0*np.exp(-((r[0:imid] - rmin)/sigma)**2)
+                for m in range(len(u)):
+                    dtu[m][:imid] -=  gamma[:imid]*(u[m][:imid] - self.u_parity[m]*self.u_reference[m])
+
+        else:
+            raise ValueError("BSSN outer boundary condition not initialized")
+
 
         DEBUG3 = False
         if DEBUG3:
@@ -868,17 +937,36 @@ class BSSN(Equations):
         )
 
     @staticmethod
-    def bc_sommerfeld(dtu, u, dxu, r, n_falloff, u_inf, ng, extended_domain):
+    def bc_sommerfeld(dtu, u, dxu, r, n_falloff, u_inf, v, ng, extended_domain):
         """
-        Apply Sommerfeld boundary conditions at the outer boundary.
+        Radiative (Sommerfeld) outer boundary condition with per-variable
+        characteristic (wave) speed v:
+
+            dtu = -v [ dxu + n (u - u_inf)/r ]        (outgoing at r_max)
+
+        The per-variable falloff power n and asymptotic value u_inf encode each
+        field's radial structure (e.g. gtt ~ r^2 via n<0). v=1 reproduces the
+        previously-validated BC exactly.
         """
         if n_falloff < 0:
             u_inf = r[-1] ** (abs(n_falloff))
-
-        dtu[-ng:] = -dxu[-ng:] - n_falloff * (u[-ng:] - u_inf) / r[-ng:]
+        dtu[-ng:] = -v * (dxu[-ng:] + n_falloff * (u[-ng:] - u_inf) / r[-ng:])
         if extended_domain:
-            dtu[:ng] = dxu[:ng] - n_falloff * (u[:ng] - u_inf) / r[:ng]
+            dtu[:ng] = v * (dxu[:ng] - n_falloff * (u[:ng] - u_inf) / r[:ng])
 
+    @staticmethod
+    @njit
+    def bc_sponge(dtu, u, gamma, u_ref, idx_right, idx_left):
+        n = u.shape
+        # right
+        for i in range(idx_right, n):
+            dtu[i] -= gamma[i] * (u[i] - u_ref)
+        # left
+        if idx_left > 0:
+            for i in range(0, idx_left):
+                dtu[i] -= gamma[i] * (u[i] - u_ref)
+        
+        
     @staticmethod
     @njit
     def get_constraints(

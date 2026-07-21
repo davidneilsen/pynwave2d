@@ -53,7 +53,7 @@ C3 = NCompactDerivative.deriv(x, DerivType.D1_JP6, CFDSolve.LUSOLVE)
 f, dxf, dxxf = func(x)
 
 DXF = D1.grad(f)
-DXXF = D2.grad2(f)
+DXXF = D2.grad(f)
 
 CXF = C1.grad(f)
 CXXF = C2.grad(f)

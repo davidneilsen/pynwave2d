@@ -74,6 +74,12 @@ class DerivType(Enum):
     D2_E42 = 31
     D1_E666 = 32
     D2_E666 = 33
+    D1_C6_4 = 34
+    D1_C4_1 = 35
+    D1_A4_3 = 36
+    D2_2C6_1 = 37
+    D2_2C4_1 = 38
+    D2_2A_1 = 39
 
 
 class CFDSolve(Enum):
@@ -125,6 +131,9 @@ d1_type_map = {
     "ME642": DerivType.D1_ME642,
     "BYUC6_Op10": DerivType.D1_BYU_C6_Op10,
     "BYUP4_Op18": DerivType.D1_BYU_P4_Op18,
+    "C6_4": DerivType.D1_C6_4,
+    "C4_1": DerivType.D1_C4_1,
+    "A4_3": DerivType.D1_A4_3
 }
 
 d2_type_map = {
@@ -144,12 +153,17 @@ d2_type_map = {
     "ME44": DerivType.D2_ME44,
     "ME6": DerivType.D2_ME642,
     "ME642": DerivType.D2_ME642,
+    "2C6_1": DerivType.D2_2C6_1,
+    "2C4_1": DerivType.D2_2C4_1,
+    "2A_1": DerivType.D2_2A_1
 }
 
 cfd_solve_map = {
+    "None": CFDSolve.NONE,
     "SCIPY": CFDSolve.SCIPY,
     "LUSOLVE": CFDSolve.LUSOLVE,
     "D_INV": CFDSolve.D_INV,
     "D_LU": CFDSolve.D_LU,
     "PENTAPY": CFDSolve.PENTAPY,
 }
+
