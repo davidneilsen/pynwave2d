@@ -6,7 +6,8 @@ import os
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from nwave import Grid, Grid2D, CompactFirst2D, CompactSecond2D, ExplicitFirst44_2D, ExplicitSecond44_2D
+from nwave import Grid, Grid2D, CompactFirst2D, CompactSecond2D, ExplicitFirst44_2D, ExplicitSecond44_2D, DerivType, CFDSolve
+from nwave.compactderivs import CompactDerivative
 
 
 def func(x, y):
@@ -39,7 +40,7 @@ def func2(x, y):
     return f, dxf, dyf, dxxf, dyyf
 
 
-with open("params2D.json") as f:
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "params2D.json")) as f:
     params = json.load(f)
 
 g = Grid2D(params)
@@ -51,8 +52,11 @@ y = g.xi[1]
 D1 = ExplicitFirst44_2D(dx, dy)
 D2 = ExplicitSecond44_2D(dx, dy)
 
-C1 = CompactFirst2D(x, y, "D1_SP4")
-C2 = CompactSecond2D(x, y, "D2_JTT4")
+# CompactFirst2D/CompactSecond2D take one 1D operator per direction.
+C1 = CompactFirst2D(x, y, CompactDerivative(x, DerivType.D1_SP4, CFDSolve.LUSOLVE),
+                    CompactDerivative(y, DerivType.D1_SP4, CFDSolve.LUSOLVE))
+C2 = CompactSecond2D(x, y, CompactDerivative(x, DerivType.D2_JT4, CFDSolve.LUSOLVE),
+                     CompactDerivative(y, DerivType.D2_JT4, CFDSolve.LUSOLVE))
 
 f, dxf, dyf, dxxf, dyyf = func(x, y)
 
