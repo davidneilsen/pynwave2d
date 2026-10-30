@@ -336,7 +336,7 @@ def lu_banded(
     else:
         lapack_routine = "gbtrf"
         (gbtrf,) = lapack.get_lapack_funcs((lapack_routine,), (ab,))
-        lpkc_ab = np.row_stack(
+        lpkc_ab = np.vstack(
             (
                 np.zeros((num_subdiagonals, ab.shape[1]), dtype=ab.dtype),
                 ab,
