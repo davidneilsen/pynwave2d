@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Jupyter autosave copies (files already tracked stay tracked)
+.ipynb_checkpoints/
+
+# Simulation output written by bssn/solver.py
+output_*/
+
+# Editor / agent / OS
+.claude/
+.vscode/
+.idea/
+*.swp
+.DS_Store

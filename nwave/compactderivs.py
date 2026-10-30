@@ -4,7 +4,10 @@ from enum import Enum
 from . import bandedLUSolve as blu
 from . import utils
 from .types import *
-import pentapy as pp
+try:
+    import pentapy as pp
+except ImportError:
+    pp = None
 
 
 class CompactDerivative:
@@ -587,6 +590,8 @@ class CompactDerivative:
                 * self.denom
             )
         elif self.method == CFDSolve.PENTAPY:
+            if pp is None:
+                raise ImportError("pentapy is required for CFDSolve.PENTAPY but is not installed.")
             if self.bands != (2, 2):
                 raise ValueError("PENTAPY method requires bands to be (2, 2).")
             rhs = np.matmul(self.B, f)
