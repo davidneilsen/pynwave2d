@@ -15,6 +15,16 @@ import tomllib
 from nwave import *
 
 
+def require_finite_state(u, step, names=None):
+    """Reject any non-finite evolved field before diagnostics or output."""
+    for field, values in enumerate(u):
+        if not np.isfinite(values).all():
+            label = f"{names[field]} ({field})" if names is not None else f"{field}"
+            raise FloatingPointError(
+                f"Non-finite evolved field {label} at step {step}"
+            )
+
+
 def main(parfile):
     # Read parameters
     with open(parfile, "rb") as f:
@@ -84,6 +94,7 @@ def main(parfile):
         lapse_gauge=lapse_gauge,
     )
     eqs.initialize(g, params)
+    require_finite_state(eqs.u, 0, eqs.u_names)
 
     output_dir = params["output_dir"] + "_" + str(level)
     output_interval = params["output_interval"] * (1 << level)
@@ -148,6 +159,11 @@ def main(parfile):
             for j in range(eqs.Nu):
                 eqs.u[j][:] = filvar.filter(eqs.u[j])
 
+        try:
+            require_finite_state(eqs.u, i, eqs.u_names)
+        except FloatingPointError:
+            confile.close()
+            raise
         time += dt
         if i % print_interval == 0 or i % output_interval == 0:
             eqs.cal_constraints(eqs.u, g)
@@ -176,9 +192,6 @@ def main(parfile):
             #fname = f"{output_dir}/rtheta_{i:04d}.curve"
             #butil.write_curve_functions(fname, ["rTheta"], time, g.xi[0], [rTheta])
 
-        if np.isnan(eqs.u[1]).any():
-            print("Solution has a NaN.  Bye.")
-            break
 
     confile.close()
 
