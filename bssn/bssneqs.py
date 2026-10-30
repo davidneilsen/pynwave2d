@@ -1026,11 +1026,11 @@ class BSSN(Equations):
                 Mom[i] = 0.0
                 Gamcon[i] = 0.0
 
-        Ham[0:nghost] = 0.0
+        Ham[:nghost] = 0.0
         Ham[-nghost:] = 0.0
-        Mom[0:nghost] = 0.0
+        Mom[:nghost] = 0.0
         Mom[-nghost:] = 0.0
-        Gamcon[0:nghost] = 0.0
+        Gamcon[:nghost] = 0.0
         Gamcon[-nghost:] = 0.0
 
     def find_horizon(self, g: Grid, r0):
