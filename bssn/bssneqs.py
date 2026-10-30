@@ -407,21 +407,21 @@ class BSSN(Equations):
             d_Gamma_r,
             v,
         )
+        # Covariant Laplacian of the lapse, D^2 alpha = gamma^{ij} D_i D_j alpha.
+        # Computed once so rhs_K and any lapse gauge needing it share one copy.
+        lap_alpha = BSSN.laplacian_alpha(
+            chi, g_rr, g_tt, d_alpha, d_chi, d_g_rr, d_g_tt, d2_alpha
+        )
+
         BSSN.rhs_K(
             K_rhs,
             alpha,
             A_rr,
             K,
-            chi,
             g_rr,
-            g_tt,
             beta_r,
             ad_K,
-            d_alpha,
-            d_chi,
-            d_g_rr,
-            d_g_tt,
-            d2_alpha,
+            lap_alpha,
         )
         BSSN.rhs_Gamma_r(
             Gamma_r_rhs,
@@ -706,35 +706,47 @@ class BSSN(Equations):
 
     @staticmethod
     @njit
+    def laplacian_alpha(chi, g_rr, g_tt, d_alpha, d_chi, d_g_rr, d_g_tt, d2_alpha):
+        """
+        Covariant Laplacian of the lapse in 1D spherical symmetry,
+
+            D^2 alpha = gamma^{ij} D_i D_j alpha,
+
+        with gamma_{ij} = chi^{-1} diag(g_rr, g_tt, g_tt sin^2 theta).
+        This is minus the four alpha-derivative terms of dt K.
+        """
+        inv_g_rr = 1.0 / g_rr
+        inv_g_tt = 1.0 / g_tt
+        inv_g_rr2 = inv_g_rr * inv_g_rr
+
+        return (
+            chi * d2_alpha * inv_g_rr
+            - chi * d_g_rr * d_alpha * inv_g_rr2 / 2
+            + chi * d_g_tt * d_alpha * inv_g_rr * inv_g_tt
+            - d_alpha * d_chi * inv_g_rr / 2
+        )
+
+    @staticmethod
+    @njit
     def rhs_K(
         K_rhs,
         alpha,
         A_rr,
         K,
-        chi,
         g_rr,
-        g_tt,
         beta_r,
         ad_K,
-        d_alpha,
-        d_chi,
-        d_g_rr,
-        d_g_tt,
-        d2_alpha,
+        lap_alpha,
     ):
 
         inv_g_rr = 1.0 / g_rr
-        inv_g_tt = 1.0 / g_tt
         inv_g_rr2 = inv_g_rr * inv_g_rr
 
         K_rhs[:] = (
             3 * alpha * A_rr**2 * inv_g_rr2 / 2
             + K**2 * alpha / 3
             + beta_r * ad_K
-            + chi * d_g_rr * d_alpha * inv_g_rr2 / 2
-            - chi * d_g_tt * d_alpha * inv_g_rr * inv_g_tt
-            + d_alpha * d_chi * inv_g_rr / 2
-            - chi * d2_alpha * inv_g_rr
+            - lap_alpha
         )
         """
         print("chi       = ", l2norm(chi))
