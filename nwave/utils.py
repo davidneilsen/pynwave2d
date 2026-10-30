@@ -393,6 +393,83 @@ def construct_banded_matrix_numba(N, kl, ku, coeffs, bcoeffs, parity):
     return A
 
 
+
+@njit
+def construct_banded_storage_numba(N, kl, ku, coeffs, bcoeffs, parity, klt, kut):
+    """
+    Same matrix as construct_banded_matrix_numba, but written directly into
+    LAPACK banded storage with klt lower and kut upper bands, so no N x N
+    array is ever allocated.  A[i, j] is stored at AB[kut + i - j, j].
+
+    Returns (AB, nlost): nlost counts nonzero entries that fall outside the
+    klt/kut bands and so could not be stored.
+    """
+    assert kl == ku
+    assert len(coeffs) == kl + ku + 1
+
+    AB = np.zeros((klt + kut + 1, N))
+    p = len(bcoeffs)
+    nlost = 0
+
+    for i in range(N):
+        if i < p:
+            b = bcoeffs[i]
+            m = len(b)
+            for j in range(min(m, N)):
+                k = kut + i - j
+                if 0 <= k <= klt + kut:
+                    AB[k, j] = b[j]
+                elif b[j] != 0.0:
+                    nlost += 1
+        elif i >= N - p:
+            idx = N - 1 - i
+            b = bcoeffs[idx]
+            m = len(b)
+            for j in range(m):
+                col = N - m + j
+                if 0 <= col < N:
+                    v = parity * b[m - 1 - j]
+                    k = kut + i - col
+                    if 0 <= k <= klt + kut:
+                        AB[k, col] = v
+                    elif v != 0.0:
+                        nlost += 1
+        else:
+            for offset in range(-kl, ku + 1):
+                j = i + offset
+                if 0 <= j < N:
+                    AB[kut - offset, j] = coeffs[offset + kl]
+
+    return AB, nlost
+
+
+def pad_banded(AB, kl, ku, klt, kut):
+    """
+    Re-embed a banded matrix stored with (kl, ku) bands into storage with
+    (klt, kut) >= (kl, ku) bands.  A 1-D AB is taken as a diagonal (0, 0).
+    """
+    N = AB.shape[-1]
+    out = np.zeros((klt + kut + 1, N), dtype=np.float64)
+    out[kut - ku : kut - ku + kl + ku + 1, :] = AB.reshape(kl + ku + 1, N)
+    return out
+
+
+@njit
+def blend_banded_rows(A0, A1, mask, kl, ku):
+    """
+    Banded form of the row blend  C[i, :] = mask[i] A0[i, :] + (1 - mask[i]) A1[i, :]
+    for A0, A1 in the same (kl, ku) banded storage.  Entries whose row index
+    falls outside the matrix stay zero, as in full_to_banded.
+    """
+    nb, N = A0.shape
+    C = np.zeros((nb, N))
+    for k in range(nb):
+        for j in range(N):
+            i = j + k - ku
+            if 0 <= i < N:
+                C[k, j] = mask[i] * A0[k, j] + (1 - mask[i]) * A1[k, j]
+    return C
+
 def linear_interpolation(f, x, x0):
     """
     Perform linear interpolation for the value of f at x0 given arrays f and x.

@@ -71,7 +71,8 @@ class NCompactDerivative:
         self.Pbands = Pmat[1]
         self.Qbands = Qmat[1]
         self.P = Pmat[0]
-        self.Q = Qmat[0]
+        self.Qb = Qmat[0]  # banded storage; the full Q is built only on demand
+        self._Q = None
         self.denom = denom
         self.lu_factorization = None
         self.D = None
@@ -79,13 +80,6 @@ class NCompactDerivative:
         self.checkf = True
         self.mask = mask
         self.HAVE_ADVECTIVE_DERIV = False
-
-        self.Qb = full_to_banded(Qmat[0], Qmat[1][0], Qmat[1][1])
-        Qf = banded_to_full(self.Qb, self.Qbands[0], self.Qbands[1], self.N, self.N)
-        if not np.allclose(Qf, self.Q):
-            raise ValueError(
-                "Q matrix is not banded correctly.  Check Qbands and Q matrix."
-            )
 
         if self.method == CFDSolve.LUSOLVE:
             # factor the P matrix for LU solve
@@ -178,6 +172,18 @@ class NCompactDerivative:
         Get the P matrix.
         """
         return self.P
+
+    @property
+    def Q(self) -> np.ndarray:
+        """
+        Full N x N Q matrix, built from the banded storage on first use and
+        cached.  Only the D_INV, D_LU and PENTAPY methods need it.
+        """
+        if self._Q is None:
+            self._Q = banded_to_full(
+                self.Qb, self.Qbands[0], self.Qbands[1], self.N, self.N
+            )
+        return self._Q
 
     def get_Q(self) -> np.ndarray:
         """
@@ -1337,10 +1343,11 @@ def build_derivative(N: int, dtype: DerivType):
     else:
         pparity = Pmat[3]
         pbands = Pmat[2]
-        Pf = construct_banded_matrix_numba(
-            N, pbands[0], pbands[1], Pmat[0], Pmat[1], pparity
+        P, nlost = construct_banded_storage_numba(
+            N, pbands[0], pbands[1], Pmat[0], Pmat[1], pparity, pbands[0], pbands[1]
         )
-        P = full_to_banded(Pf, pbands[0], pbands[1])
+        if nlost > 0:
+            raise ValueError(f"{dtype}: {nlost} P entries fall outside bands {pbands}.")
 
     # count the number of bands for the boundary terms in the Q matrix
     nqb = 0
@@ -1352,11 +1359,15 @@ def build_derivative(N: int, dtype: DerivType):
     # set the total number of bands for the Q matrix
     qtotbands = (max(nqb, qbands[0]), max(nqb, qbands[1]))
 
-    Q = construct_banded_matrix_numba(
-        N, qbands[0], qbands[1], Qmat[0], Qmat[1], qparity
+    Qb, nlost = construct_banded_storage_numba(
+        N, qbands[0], qbands[1], Qmat[0], Qmat[1], qparity, qtotbands[0], qtotbands[1]
     )
+    if nlost > 0:
+        raise ValueError(
+            f"{dtype}: {nlost} Q entries fall outside bands {qtotbands}."
+        )
 
-    return [P, pbands], [Q, qtotbands]
+    return [P, pbands], [Qb, qtotbands]
 
 
 def build_bh_derivative(N: int, dtype0: DerivType, dtypeBH: DerivType, mask):
@@ -1383,25 +1394,17 @@ def build_bh_derivative(N: int, dtype0: DerivType, dtypeBH: DerivType, mask):
     PBH = PBHmat[0]
     QBH = QBHmat[0]
 
-    P = np.zeros((N, N), dtype=np.float64)
-    Q = np.zeros((N, N), dtype=np.float64)
-    if p0bands[0] == 0 and p0bands[1] == 0:
-        P0f = np.identity(N, dtype=np.float64)
-    else:
-        P0f = banded_to_full(P0, p0bands[0], p0bands[1], N, N)
-
-    if pbhbands[0] == 0 and pbhbands[1] == 0:
-        PBHf = np.identity(N, dtype=np.float64)
-    else:
-        # Convert the banded matrix PBH to a full matrix
-        PBHf = banded_to_full(PBH, pbhbands[0], pbhbands[1], N, N)
-
-    for i in range(N):
-        P[i, :] = mask[i] * P0f[i, :] + (1 - mask[i]) * PBHf[i, :]
-        Q[i, :] = mask[i] * Q0[i, :] + (1 - mask[i]) * QBH[i, :]
-
+    # Blend row-wise in banded storage: the dense N x N version of this needed
+    # six full matrices at once (4.8 GB at N = 10001).
     pbands = (max(p0bands[0], pbhbands[0]), max(p0bands[1], pbhbands[1]))
     qbands = (max(q0bands[0], qbhbands[0]), max(q0bands[1], qbhbands[1]))
-    Pb = full_to_banded(P, pbands[0], pbands[1])
+    Pb = blend_banded_rows(
+        pad_banded(P0, *p0bands, *pbands), pad_banded(PBH, *pbhbands, *pbands),
+        mask, *pbands,
+    )
+    Qb = blend_banded_rows(
+        pad_banded(Q0, *q0bands, *qbands), pad_banded(QBH, *qbhbands, *qbands),
+        mask, *qbands,
+    )
 
-    return [Pb, pbands], [Q, qbands]
+    return [Pb, pbands], [Qb, qbands]
