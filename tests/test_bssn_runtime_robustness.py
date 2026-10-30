@@ -62,6 +62,13 @@ class RuntimeTests(unittest.TestCase):
                     solver.require_finite_state(u, 7)
         solver.require_finite_state([np.ones(10) for _ in range(9)], 7)
 
+    def test_nonfinite_message_names_field(self):
+        u = [np.ones(3), np.array([1., np.nan, 1.])]
+        with self.assertRaisesRegex(FloatingPointError, r'^Non-finite evolved field grr \(1\) at step 7$'):
+            solver.require_finite_state(u, 7, ['chi', 'grr'])
+        with self.assertRaisesRegex(FloatingPointError, r'^Non-finite evolved field 1 at step 7$'):
+            solver.require_finite_state(u, 7)
+
     def test_solver_rejects_injected_inf(self):
         with tempfile.TemporaryDirectory() as d:
             par = Path(d) / "params.toml"
@@ -81,7 +88,7 @@ solver.main(sys.argv[2])
             p = subprocess.run([sys.executable, '-c', code, str(ROOT), str(par)],
                                capture_output=True, text=True, timeout=60)
             self.assertNotEqual(p.returncode, 0, p.stdout)
-            self.assertIn('Non-finite evolved field 8 at step 1', p.stderr)
+            self.assertIn('Non-finite evolved field gB (8) at step 1', p.stderr)
 
 
 if __name__ == "__main__":

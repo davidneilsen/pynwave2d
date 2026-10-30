@@ -14,12 +14,13 @@ import tomllib
 from nwave import *
 
 
-def require_finite_state(u, step):
+def require_finite_state(u, step, names=None):
     """Reject any non-finite evolved field before diagnostics or output."""
     for field, values in enumerate(u):
         if not np.isfinite(values).all():
+            label = f"{names[field]} ({field})" if names is not None else f"{field}"
             raise FloatingPointError(
-                f"Non-finite evolved field {field} at step {step}"
+                f"Non-finite evolved field {label} at step {step}"
             )
 
 
@@ -88,7 +89,7 @@ def main(parfile):
         have_d2=True,
     )
     eqs.initialize(g, params)
-    require_finite_state(eqs.u, 0)
+    require_finite_state(eqs.u, 0, eqs.u_names)
 
     output_dir = params["output_dir"] + "_" + str(level)
     output_interval = params["output_interval"] * (1 << level)
@@ -154,7 +155,7 @@ def main(parfile):
                 eqs.u[j][:] = filvar.filter(eqs.u[j])
 
         try:
-            require_finite_state(eqs.u, i)
+            require_finite_state(eqs.u, i, eqs.u_names)
         except FloatingPointError:
             confile.close()
             raise
