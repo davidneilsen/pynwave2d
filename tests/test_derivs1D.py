@@ -97,9 +97,12 @@ fig, ax = plt.subplots()
 #ax.plot(x,DXF,marker=".",label="Explicit")
 #ax.plot(x,CXF,marker=".",label="CX")
 #ax.plot(x,C3XF,marker=".",label="C3X")
-ax.semilogy(x,e3,marker=".",label="CFD Solve Methods")
+print("Max |LUSOLVE - SCIPY| for D1_JP6:", e3.max())
+# A log axis cannot show exact agreement, so plot zeros on a linear axis.
+plot = ax.semilogy if e3.max() > 0 else ax.plot
+plot(x,e3,marker=".",label="CFD Solve Methods")
 plt.legend()
-plt.title("Error in LU solved system")
+plt.title("|LUSOLVE - SCIPY| (D1_JP6)")
 if __name__ == "__main__":  # no windows when imported by unittest
     plt.show()
 
