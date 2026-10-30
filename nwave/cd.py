@@ -4,7 +4,10 @@ from enum import Enum
 from .bandedLUSolve import *
 from .utils import *
 from .types import *
-import pentapy as pp
+try:
+    import pentapy as pp
+except ImportError:
+    pp = None
 from numba import njit
 
 CompactFirstDerivatives = [
@@ -245,6 +248,8 @@ class NCompactDerivative:
             )
             dxf = solve_banded(self.Pbands, self.P, rhs)
         elif self.method == CFDSolve.PENTAPY:
+            if pp is None:
+                raise ImportError("pentapy is required for CFDSolve.PENTAPY but is not installed.")
             rhs = np.matmul(self.Q, f) * self.denom
             return np.asarray(
                 pp.solve(self.P, rhs, is_flat=True, index_row_wise=False, solver=1)
