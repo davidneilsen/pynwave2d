@@ -8,6 +8,7 @@ from numba import njit
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from nwave import *
+import gauges
 
 DEBUG = False
 
@@ -68,6 +69,7 @@ class BSSN(Equations):
         gbssn_system=GBSSNSystem(1, 1, 1),
         outer_bc=BSSNOuterBCType.SOMMERFELD,
         have_d2=True,
+        lapse_gauge=None,
     ):
         """
         Initialize the BSSN equations.
@@ -77,20 +79,26 @@ class BSSN(Equations):
             Grid object.
         M : float
             Mass of the black hole.
-        eta : float
-            Damping parameter.
+        eta : float or gauges.ShiftDamping
+            Gamma-driver shift damping: a constant, or a damping object from
+            gauges.SHIFT_DAMPING.
         apply_bc : "FUNCTION" or None
             If "FUNCTION", apply the boundary conditions using the function in each post-RK step.
         gbssn_system : GBSSNSystem
             System of equations to use.
         outer_bc : outer boundary condition type
+        lapse_gauge : gauges.BonaMasso
+            Lapse gauge from gauges.LAPSE_GAUGES; default 1+log with k = 2.
         """
 
         NU = 9
         super().__init__(NU, g, apply_bc)
 
         self.gbssn_system = gbssn_system
-        self.eta = eta
+        self.lapse_gauge = gauges.OnePlusLog() if lapse_gauge is None else lapse_gauge
+        self.shift_damping = (
+            eta if isinstance(eta, gauges.ShiftDamping) else gauges.ConstantEta(eta)
+        )
         self.M = M
         self.extended_domain = extended_domain
         self.have_d2 = have_d2
@@ -143,13 +151,14 @@ class BSSN(Equations):
         ]  # alpha, beta, gB
         # Outer-boundary characteristic (wave) speeds per field, from Brown's
         # GBSSN characteristic analysis (papers/BrownSpherical/paper2.tex:370-404).
-        # Proper speeds: physical/gravitational modes = 1; the 1+log gauge (lapse)
-        # mode = sqrt(2/alpha); shift (Lagrangian Gamma-driver, case L^+_+) =
-        # sqrt(1/(alpha^2 chi)). The radiative BC is only valid as r->inf, where
-        # alpha->1, chi->1, g_rr->1, so all reduce to: v=1 for the geometric
-        # fields and v=sqrt(2) for the lapse (sqrt(2/alpha)->sqrt2).
+        # Proper speeds: physical/gravitational modes = 1; the Bona-Masso lapse
+        # mode = alpha sqrt(f(alpha)) (sqrt(2/alpha) for 1+log); shift (Lagrangian
+        # Gamma-driver, case L^+_+) = sqrt(1/(alpha^2 chi)). The radiative BC is
+        # only valid as r->inf, where alpha->1, chi->1, g_rr->1, so all reduce to
+        # v=1 for the geometric fields and v=sqrt(f(1)) for the lapse, which the
+        # lapse gauge supplies (sqrt(2) for 1+log with k=2).
         self.u_wavespeed = np.ones(len(self.u_names))
-        self.u_wavespeed[self.U_ALPHA] = np.sqrt(2.0)
+        self.u_wavespeed[self.U_ALPHA] = self.lapse_gauge.speed_inf()
         # u_reference is the reference solution at the outer boundary
         # for a sponge filter.
         r = g.xi[0]
@@ -456,7 +465,8 @@ class BSSN(Equations):
             ad_B_r,
             d_Gamma_r,
             Gamma_r_rhs,
-            self.eta,
+            self.lapse_gauge.alpha2_f(alpha),
+            self.shift_damping(r, chi, g_rr, d_chi, self.M),
             lambda_lapse,
             lambda_shift,
         )
@@ -822,12 +832,14 @@ class BSSN(Equations):
         ad_B_r,
         d_Gamma_r,
         dt_Gamma_r,
+        alpha2_f,
         eta,
         lambda_lapse,
         lambda_shift,
     ):
-
-        alpha_rhs[:] = lambda_lapse * beta_r * ad_alpha - 2 * alpha * K
+        # alpha2_f = alpha^2 f(alpha), the Bona-Masso coefficient of K
+        # eta      = shift damping, a scalar or an array over r
+        alpha_rhs[:] = lambda_lapse * beta_r * ad_alpha - alpha2_f * K
         beta_r_rhs[:] = (3.0 / 4.0) * B_r + lambda_shift * beta_r * ad_beta_r
         B_r_rhs[:] = (
             dt_Gamma_r

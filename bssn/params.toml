@@ -5,7 +5,6 @@ Xmax = 100.0
 
 NGhost = 3
 cfl = 0.10
-eta = 2.0
 D1 = ["JP6", "ME6"]
 D2 = ["JP6", "ME6"]
 
@@ -30,6 +29,15 @@ initial_data = "Puncture"
 output_dir = "output_bssn"
 output_interval = 200
 print_interval = 20
+
+# --- gauge (see README "Gauge choices") ---
+[lapse]
+type = "1+log"
+k = 2.0
+
+[shift_damping]
+type = "constant"
+eta = 2.0
 
 # --- dissipation filter (interior-only; boundary terms off) ---
 [[filters]]

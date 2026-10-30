@@ -81,8 +81,6 @@ def verify_params(params):
         raise ValueError("output_dir must be a non-empty string")
     if params["Mass"] <= 0.0:
         raise ValueError("Mass must be positive")
-    if params["eta"] < 1.0:
-        raise ValueError("eta must be greater than or equal to 1.0")
 
 
 def get_filter_type(filter_str):

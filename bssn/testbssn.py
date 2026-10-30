@@ -87,7 +87,7 @@ if "Filter" in params:
 #    sys = 0 (Eulerian), 1 (Lagrangian)
 sys = bssn.GBSSNSystem(1, 1, 1)
 eqs = bssn.BSSN(
-    g, params["Mass"], params["eta"], extended_domain, "FUNCTION", sys, have_d2=True
+    g, params["Mass"], params["shift_damping"]["eta"], extended_domain, "FUNCTION", sys, have_d2=True
 )
 eqs.initialize(g, params)
 
