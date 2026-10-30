@@ -124,14 +124,15 @@ Shift damping (`[shift_damping]`), the η in ∂_t B = … − η B:
 | `type` | η | Keys (default) |
 |--------|---|----------------|
 | `"constant"` | η | `eta` (2.0, must be ≥ 1) |
-| `"invshift"` | 2 / max(\|r\|, M) | — |
 | `"Schnetter"` | η / (1 + (r/R)²) | `eta` (2.0), `R` (50.0) |
 | `"eta_MB"` | R₀ \|∂_r W\| / (√g̃_rr (1 − W)²), W = √χ (Müller & Brügmann 2010) | `R0` (1.31241) |
 | `"peaked_lorentz"` | bg + peak / (1 + (r/R)²) | `bg` (2.0), `peak` (2.0), `R` (1.31241) |
 
 `eta_MB` is stiff at an under-resolved puncture; see its docstring.  Unknown
-`type`s or keys are rejected at startup.  The old top-level `eta = ...` key is
-no longer read.
+`type`s or keys are rejected at startup.  Older parameter files still run: a
+top-level `eta = ...` is read as `[shift_damping] type = "constant"`, and an
+absent `[lapse]` table means 1+log with k = 2 (giving both forms of `eta` is
+an error).
 
 To add a gauge, write a class in `gauges/lapse.py` or `gauges/shift.py` with
 the `@register_lapse("name")` or `@register_shift("name")` decorator; its

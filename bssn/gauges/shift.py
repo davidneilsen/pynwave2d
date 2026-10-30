@@ -32,14 +32,6 @@ class ConstantEta(ShiftDamping):
         return self.eta
 
 
-@register_shift("invshift")
-class InvShift(ShiftDamping):
-    """eta = 2 / max(|r|, M): flat 2/M inside |r| < M, falling as 1/r outside."""
-
-    def __call__(self, r, chi, g_rr, d_chi, M):
-        return 2.0 / np.maximum(np.abs(r), M)
-
-
 @register_shift("Schnetter")
 class Schnetter(ShiftDamping):
     """eta = eta / (1 + (r/R)^2): radial falloff over the scale R."""
