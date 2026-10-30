@@ -171,5 +171,6 @@ plt.title("Error compact dyyf")
 """
 
 
-plt.show()
+if __name__ == "__main__":  # no windows when imported by unittest
+    plt.show()
 

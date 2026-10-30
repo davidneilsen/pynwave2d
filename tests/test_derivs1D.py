@@ -80,7 +80,8 @@ ax.semilogy(x,e1d,marker=".",label="FD")
 ax.semilogy(x,c1d,marker=".",label="CFD")
 plt.legend()
 plt.title("Error dxxf 1D (x)")
-plt.show()
+if __name__ == "__main__":  # no windows when imported by unittest
+    plt.show()
 
 c1d = np.abs(crr_x)
 e1d = np.abs(err_x)
@@ -89,7 +90,8 @@ ax.semilogy(x,e1d,marker=".",label="FD")
 ax.semilogy(x,c1d,marker=".",label="CFD")
 plt.legend()
 plt.title("Error dxf 1D (x)")
-plt.show()
+if __name__ == "__main__":  # no windows when imported by unittest
+    plt.show()
 
 fig, ax = plt.subplots()
 #ax.plot(x,DXF,marker=".",label="Explicit")
@@ -98,5 +100,6 @@ fig, ax = plt.subplots()
 ax.semilogy(x,e3,marker=".",label="CFD Solve Methods")
 plt.legend()
 plt.title("Error in LU solved system")
-plt.show()
+if __name__ == "__main__":  # no windows when imported by unittest
+    plt.show()
 
