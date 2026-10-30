@@ -84,14 +84,58 @@ filter_boundary = false
 # compact filters: alpha, beta, solve_method, frequency
 ```
 
-### Black hole, gauge and initial data
+### Black hole and initial data
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `Mass` | — | ADM mass M |
 | `initial_data` | — | `"Puncture"` or `"EddingtonFinkelstein"` |
 | `collapsed_lapse` | — | Start with the pre-collapsed lapse (recommended for `Puncture`) |
-| `eta` | — | Gamma-driver shift damping η (must be ≥ 1) |
+
+### Gauge choices
+
+The lapse and the Gamma-driver shift damping are chosen with two tables; either
+may be omitted to get the default (1+log with k = 2, constant η = 2).
+
+```toml
+[lapse]
+type = "1+log"
+k = 2.0
+
+[shift_damping]
+type = "constant"
+eta = 2.0
+```
+
+Lapse (`[lapse]`), Bona-Massó slicing ∂_t α = β ∂_r α − α² f(α) K:
+
+| `type` | f(α) | Keys (default) |
+|--------|------|----------------|
+| `"1+log"` | k / α | `k` (2.0) |
+| `"N1"` | (2/α)(1 − α/2 + α²/3) | — |
+| `"N2"` | (2/α)(1 − α + α² − α³/4) | — |
+| `"N3"` | (2/α)(1 − 3α/2 + 2α² − α³ + α⁴/5) | — |
+| `"ShockFull"` | 1 + κ/α² | `kappa` (1.0) |
+
+The outer Sommerfeld speed for α is the gauge's asymptotic speed √f(1).
+
+Shift damping (`[shift_damping]`), the η in ∂_t B = … − η B:
+
+| `type` | η | Keys (default) |
+|--------|---|----------------|
+| `"constant"` | η | `eta` (2.0, must be ≥ 1) |
+| `"invshift"` | 2 / max(\|r\|, M) | — |
+| `"Schnetter"` | η / (1 + (r/R)²) | `eta` (2.0), `R` (50.0) |
+| `"eta_MB"` | R₀ \|∂_r W\| / (√g̃_rr (1 − W)²), W = √χ (Müller & Brügmann 2010) | `R0` (1.31241) |
+| `"peaked_lorentz"` | bg + peak / (1 + (r/R)²) | `bg` (2.0), `peak` (2.0), `R` (1.31241) |
+
+`eta_MB` is stiff at an under-resolved puncture; see its docstring.  Unknown
+`type`s or keys are rejected at startup.  The old top-level `eta = ...` key is
+no longer read.
+
+To add a gauge, write a class in `gauges/lapse.py` or `gauges/shift.py` with
+the `@register_lapse("name")` or `@register_shift("name")` decorator; its
+constructor arguments are its parameter-file keys.  Nothing else needs editing.
 
 ### Boundaries and diagnostics
 

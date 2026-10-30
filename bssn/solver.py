@@ -10,6 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import bssneqs as bssn
 import bssnutils as butil
+import gauges
 import tomllib
 from nwave import *
 
@@ -67,16 +68,20 @@ def main(parfile):
     bssn_outer_bc = butil.get_bssn_outer_bc(bssn_outer_bc_str)
     #bssn_outer_bc_sponge_width = params.get("bssn_outer_bc_sponge_width", 20.0)
 
+    lapse_gauge, shift_damping = gauges.build_gauges(params)
+    print(f"Lapse gauge: {lapse_gauge}, shift damping: {shift_damping}")
+
     sys = bssn.GBSSNSystem(1, 1, 1)
     eqs = bssn.BSSN(
         g,
         params["Mass"],
-        params["eta"],
+        shift_damping,
         extended_domain,
         BCType.FUNCTION,
         sys,
         outer_bc=bssn_outer_bc,
         have_d2=True,
+        lapse_gauge=lapse_gauge,
     )
     eqs.initialize(g, params)
 

@@ -27,7 +27,6 @@ level = LEVEL
 
 NGhost = 3
 cfl = 0.10
-eta = 2.0
 D1 = D1LIST
 D2 = D2LIST
 
@@ -48,6 +47,14 @@ output_dir = OUTPUTDIR
 output_interval = 50
 print_interval = 5
 bhmask_outer_radius = 50.0
+
+[lapse]
+type = "1+log"
+k = 2.0
+
+[shift_damping]
+type = "constant"
+eta = 2.0
 
 # dissipation filter (interior-only; boundary terms off)
 [[filters]]
