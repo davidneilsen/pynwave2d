@@ -119,6 +119,37 @@ Lapse (`[lapse]`), Bona-Massó slicing ∂_t α = β ∂_r α − α² f(α) K:
 
 The outer Sommerfeld speed for α is the gauge's asymptotic speed √f(1).
 
+Every Bona-Massó gauge also accepts `eta_lapse` (default 0.0), which adds
+Laplacian damping `+ eta_lapse D²α`.  The term vanishes for any constant
+lapse and damps short wavelengths fastest (rate `eta_lapse k²/2`), but it is
+parabolic, so large values need a smaller time step.  Around `0.01–0.03` is
+practical at `dr = 0.02`.
+
+```toml
+[lapse]
+type = "1+log"
+eta_lapse = 0.02
+```
+
+The experimental `"telegrapher"` lapse is second order in time.  It evolves
+a 10th field, `lapseA` = ∂_t α:
+
+    ∂_t α = A + β ∂_r α
+    ∂_t A = c² D²α − 2μ (A + 2αK) + s μ² g (α − α_ref) + β ∂_r A
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `c` | 1.5 | gauge speed; also the Sommerfeld speed of α and A |
+| `mu` | 1.0 | damping rate |
+| `mu2_sign` | −1.0 | s in [−1, 1]; −1 is distortionless (every k moves at c), 0 drops the mass term |
+| `mu2_ref` | `"chi"` | α_ref: `"none"`, `"unity"`, `"chi"` (√χ), `"chi_clamped"` (√min(χ,1)), `"initial"` (α at t = 0) |
+| `mu2_gate` | `"none"` | g: `"none"`, `"alpha"`, `"alpha2"`, `"chi1"` (off once χ > 1 + 8 `gate_width`) |
+| `gate_width` | 0.05 | width of the `"chi1"` gate |
+
+A starts at the 1+log equilibrium −2αK (zero for puncture data).  See
+`gauges/telegrapher.py` for why the mass term needs a reference lapse and a gate.
+`lapseA` is written to the `.curve` snapshots after `gB`.
+
 Shift damping (`[shift_damping]`), the η in ∂_t B = … − η B:
 
 | `type` | η | Keys (default) |
@@ -134,9 +165,11 @@ top-level `eta = ...` is read as `[shift_damping] type = "constant"`, and an
 absent `[lapse]` table means 1+log with k = 2 (giving both forms of `eta` is
 an error).
 
-To add a gauge, write a class in `gauges/lapse.py` or `gauges/shift.py` with
-the `@register_lapse("name")` or `@register_shift("name")` decorator; its
-constructor arguments are its parameter-file keys.  Nothing else needs editing.
+To add a gauge, write a class in `gauges/lapse.py`, `gauges/shift.py` or a new
+module imported in `gauges/__init__.py`, with the `@register_lapse("name")` or
+`@register_shift("name")` decorator; its constructor arguments are its
+parameter-file keys.  A lapse gauge that needs an extra evolved field sets
+`n_aux`, `aux_names`, `initial_aux()` and `rhs_aux()`, as the telegrapher does.
 
 ### Boundaries and diagnostics
 
