@@ -71,7 +71,7 @@ class BSSN(Equations):
         outer_bc=BSSNOuterBCType.SOMMERFELD,
         have_d2=True,
         lapse_gauge=None,
-        sommerfeld_tail=False,
+        sommerfeld_tail=True,
     ):
         """
         Initialize the BSSN equations.
@@ -90,7 +90,7 @@ class BSSN(Equations):
             System of equations to use.
         outer_bc : outer boundary condition type
         sommerfeld_tail : bool
-            Add an opt-in one-anchor R^-3 nonradiative residual correction.
+            Add the default-on one-anchor R^-3 nonradiative residual correction.
             False preserves the ordinary Sommerfeld boundary condition.
         lapse_gauge : gauges.LapseGauge
             Lapse gauge from gauges.LAPSE_GAUGES; default 1+log with k = 2.

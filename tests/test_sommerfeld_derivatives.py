@@ -30,8 +30,8 @@ class RadiationDerivativeTests(unittest.TestCase):
             g.num_filters = 1
             g.Filter = [SimpleNamespace(apply_filter=FilterApply.APPLY_DERIVS,
                                         filter=lambda x: 0.9 * x)]
-        eq = BSSN(g, 1., 2., True)
-        bulk_eq = BSSN(g, 1., 2., True)
+        eq = BSSN(g, 1., 2., True, sommerfeld_tail=False)
+        bulk_eq = BSSN(g, 1., 2., True, sommerfeld_tail=False)
 
         u = [np.zeros_like(r) for _ in range(9)]
         u[0][:] = 1.

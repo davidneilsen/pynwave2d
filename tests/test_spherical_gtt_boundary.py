@@ -75,7 +75,7 @@ class SphericalGTTBoundaryTests(unittest.TestCase):
         u[2][:] = r * r * (1 + 0.002 * np.cos(0.2 * r))
         u[5][:] = -2 / r
         u[6][:] = 1.
-        eq = BSSN(g, 1., 2., True)
+        eq = BSSN(g, 1., 2., True, sommerfeld_tail=False)
         for a in eq.u:
             a[:] = 999.  # the stored state must never replace the supplied RK stage
         out = [np.zeros_like(r) for _ in range(9)]

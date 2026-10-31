@@ -92,7 +92,7 @@ def main(parfile):
         outer_bc=bssn_outer_bc,
         have_d2=True,
         lapse_gauge=lapse_gauge,
-        sommerfeld_tail=params.get("sommerfeld_tail", False),
+        sommerfeld_tail=params.get("sommerfeld_tail", True),
     )
     eqs.initialize(g, params)
     require_finite_state(eqs.u, 0, eqs.u_names)

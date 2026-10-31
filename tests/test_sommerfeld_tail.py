@@ -1,4 +1,4 @@
-"""Opt-in power-law residual matching invariants, independent of evolutions."""
+"""Power-law residual matching invariants, independent of evolutions."""
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -30,7 +30,8 @@ class TailTests(unittest.TestCase):
     def test_telegrapher_auxiliary_uses_same_tail_and_preserves_bulk(self):
         g = self.grid()
         r = g.xi[0]
-        base = BSSN(g, 1., 2., True, lapse_gauge=gauges.Telegrapher(c=1.7))
+        base = BSSN(g, 1., 2., True, lapse_gauge=gauges.Telegrapher(c=1.7),
+                    sommerfeld_tail=False)
         enabled = BSSN(g, 1., 2., True, lapse_gauge=gauges.Telegrapher(c=1.7),
                        sommerfeld_tail=True)
         for eq in (base, enabled):
@@ -49,6 +50,19 @@ class TailTests(unittest.TestCase):
         for boundary, anchor in ((np.arange(3), 3), (np.arange(len(r)-3, len(r)), len(r)-4)):
             expected = S[boundary] + (abs(r[anchor])/abs(r[boundary]))**3 * (reference[-1][anchor] - S[anchor])
             np.testing.assert_allclose(actual[-1][boundary], expected, rtol=2e-14, atol=1e-16)
+
+    def test_default_on_matches_explicit_true(self):
+        g = self.grid()
+        default = BSSN(g, 1., 2., True)
+        enabled = self.initialized(g, True)
+        self.assertTrue(default.sommerfeld_tail)
+        actual = [np.zeros_like(x) for x in enabled.u]
+        expected = [np.zeros_like(x) for x in enabled.u]
+        default.rhs(actual, enabled.u, g)
+        enabled.rhs(expected, enabled.u, g)
+        for a, b in zip(actual, expected):
+            np.testing.assert_array_equal(a, b)
+        self.assertFalse(self.initialized(g, False).sommerfeld_tail)
 
     def test_invalid_setting(self):
         for enabled in (-1, 0, 1, 4, 1.0, 'true', None):
