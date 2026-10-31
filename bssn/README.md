@@ -253,6 +253,9 @@ Sommerfeld condition.
 Over the outermost 5 M of a puncture run this lowers the constraint norms by
 factors of 10^2-10^4 with E642 and 10^3-10^5 with JT4 and JT6.  JP6 is
 currently broken (not convergent), and with it the correction makes the
-outer norms worse.
+outer norms worse.  It also reduces what the boundary reflects into the
+interior: on a +-20 M domain, compared with a +-100 M run, the error inside
+|r| < 10 M is 10-250x smaller up to t = 25 M and still about 2x smaller at
+t = 40 M (JT4 and E642).
 
 Background: [NewRad documentation](https://einsteintoolkit.org/thornguide/EinsteinEvolve/NewRad/documentation.html).
