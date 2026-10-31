@@ -127,6 +127,8 @@ class BSSN(Equations):
         self.u_names = ["chi", "grr", "gtt", "Arr", "K", "Gt", "alpha", "beta", "gB"]
         self.c_names = ["ham", "mom", "gamcom"]
         self.outer_bc = outer_bc
+        # gtt's falloff/asymptote entries are unused: rhs() applies
+        # bc_spherical_gtt to it instead.
         self.u_falloff = [
             1,
             1,
@@ -1008,8 +1010,9 @@ class BSSN(Equations):
         the falloff term uses the positive radius at both boundaries.
 
         The per-variable falloff power n and asymptotic value u_inf encode each
-        field's radial structure (e.g. gtt ~ r^2 via n<0). The supplied speed
-        v is retained at both boundaries.
+        field's radial structure (n<0 takes u_inf = r[-1]**|n|). The supplied
+        speed v is retained at both boundaries.  gtt uses bc_spherical_gtt
+        instead, since its r**2 background is not a constant asymptote.
         """
         if n_falloff < 0:
             u_inf = r[-1] ** (abs(n_falloff))
