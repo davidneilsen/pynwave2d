@@ -3,8 +3,8 @@ Nx =  10000
 Xmin =-100.0
 Xmax = 100.0
 
-# NRPy/NewRad-style one-anchor R^-3 residual correction.
-# Enabled by default; does not change the interior BSSN equations.
+# NewRad-style correction to the outer Sommerfeld condition (see README);
+# changes only the boundary points.
 sommerfeld_tail = true
 
 NGhost = 3

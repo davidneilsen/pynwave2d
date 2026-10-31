@@ -1,9 +1,13 @@
-"""Power-law residual matching invariants, independent of evolutions."""
+"""Tests for the NewRad-style Sommerfeld tail (bssn/sommerfeld_tail.py).
+
+Run: python -m unittest discover -s tests -p test_sommerfeld_tail.py -v
+"""
 from pathlib import Path
 from types import SimpleNamespace
 import sys
 import unittest
 import numpy as np
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'bssn'), str(ROOT)]
 from bssneqs import BSSN
@@ -14,7 +18,8 @@ from nwave import Grid1D, ExplicitFirst642_1D, ExplicitSecond642_1D, FilterApply
 
 class TailTests(unittest.TestCase):
     def grid(self):
-        g = Grid1D({'Nx': 101, 'Xmin': -20., 'Xmax': 20., 'NGhost': 3}, cell_centered=True)
+        g = Grid1D({'Nx': 101, 'Xmin': -20., 'Xmax': 20., 'NGhost': 3},
+                   cell_centered=True)
         g.set_D1(ExplicitFirst642_1D(g.dx[0]))
         g.set_D2(ExplicitSecond642_1D(g.dx[0]))
         r = g.xi[0]
@@ -28,6 +33,7 @@ class TailTests(unittest.TestCase):
         return e
 
     def test_telegrapher_auxiliary_uses_same_tail_and_preserves_bulk(self):
+        """The telegrapher field gets the tail; interior RHS is untouched."""
         g = self.grid()
         r = g.xi[0]
         base = BSSN(g, 1., 2., True, lapse_gauge=gauges.Telegrapher(c=1.7),
@@ -47,11 +53,14 @@ class TailTests(unittest.TestCase):
             np.testing.assert_array_equal(a[3:-3], b[3:-3])
         dx = g.D1.grad(u[-1])
         S = -1.7 * (np.sign(r) * dx + 2 * u[-1] / abs(r))
-        for boundary, anchor in ((np.arange(3), 3), (np.arange(len(r)-3, len(r)), len(r)-4)):
-            expected = S[boundary] + (abs(r[anchor])/abs(r[boundary]))**3 * (reference[-1][anchor] - S[anchor])
+        sides = ((np.arange(3), 3), (np.arange(len(r) - 3, len(r)), len(r) - 4))
+        for boundary, anchor in sides:
+            w = (abs(r[anchor]) / abs(r[boundary]))**3
+            expected = S[boundary] + w * (reference[-1][anchor] - S[anchor])
             np.testing.assert_allclose(actual[-1][boundary], expected, rtol=2e-14, atol=1e-16)
 
     def test_default_on_matches_explicit_true(self):
+        """Omitting the option is the same as sommerfeld_tail=True."""
         g = self.grid()
         default = BSSN(g, 1., 2., True)
         enabled = self.initialized(g, True)
@@ -65,11 +74,13 @@ class TailTests(unittest.TestCase):
         self.assertFalse(self.initialized(g, False).sommerfeld_tail)
 
     def test_invalid_setting(self):
+        """Only booleans are accepted."""
         for enabled in (-1, 0, 1, 4, 1.0, 'true', None):
             with self.assertRaises(ValueError):
                 self.initialized(self.grid(), enabled)
 
     def test_exact_power_law_recovery_both_sides_and_gtt(self):
+        """An exact R^-3 residual is reproduced on both sides, for X and gtt."""
         r = self.grid().xi[0]
         R = abs(r)
         geometry = tail.geometry(r, 3, True)
@@ -90,6 +101,7 @@ class TailTests(unittest.TestCase):
                 np.testing.assert_array_equal(raw[3:-3], original[3:-3])
 
     def test_flat_and_positive_domain_leave_inner_boundary_untouched(self):
+        """On a half domain only the outer boundary is changed."""
         r = np.linspace(1., 20., 101)
         geometry = tail.geometry(r, 3, False)
         rhs = np.zeros_like(r)
@@ -99,12 +111,14 @@ class TailTests(unittest.TestCase):
         np.testing.assert_array_equal(rhs[:3], 123.)
 
     def test_current_stage_parity_and_exact_interior(self):
+        """Uses the supplied RK stage, keeps parity, leaves the interior bitwise."""
         for filtered in (False, True):
             g = self.grid()
             r = g.xi[0]
             if filtered:
                 g.num_filters = 1
-                g.Filter = [SimpleNamespace(apply_filter=FilterApply.APPLY_DERIVS, filter=lambda x: .91*x)]
+                g.Filter = [SimpleNamespace(apply_filter=FilterApply.APPLY_DERIVS,
+                                            filter=lambda x: .91 * x)]
             base = self.initialized(g, False)
             u = [x.copy() for x in base.u]
             u[1][:] = 1 + .001*np.cos(.13*r)
@@ -124,7 +138,8 @@ class TailTests(unittest.TestCase):
                 e.rhs(out, u, g)
                 for m in range(9):
                     np.testing.assert_array_equal(out[m][3:-3], reference[m][3:-3])
-                    np.testing.assert_allclose(out[m][:3], e.u_parity[m]*out[m][-1:-4:-1], atol=5e-10, rtol=0)
+                    np.testing.assert_allclose(out[m][:3], e.u_parity[m] * out[m][-1:-4:-1],
+                                               atol=5e-10, rtol=0)
                     if not enabled:
                         np.testing.assert_array_equal(out[m], reference[m])
                 # Poisoning stored state must not change even boundary RHS.
