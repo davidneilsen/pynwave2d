@@ -474,16 +474,21 @@ class BSSN(Equations):
         # Apply outer boundary conditions at r = rmax
         if (self.outer_bc == BSSNOuterBCType.SOMMERFELD):
             ng = g.nghost
+            # Radiation needs ordinary radial derivatives, not derivatives
+            # upwinded for beta*du/dr in the bulk. In particular, beta=0 must
+            # not select the same one-sided advection stencil at both ends.
+            f_A_rr_bc = filderivs.filter(A_rr) if filderivs is not None else A_rr
+            f_B_r_bc = filderivs.filter(B_r) if filderivs is not None else B_r
             dxu = [
                 d_chi,
                 d_g_rr,
                 d_g_tt,
-                ad_A_rr,
+                g.D1.grad(f_A_rr_bc),
                 d_K,
                 d_Gamma_r,
                 d_alpha,
                 d_beta_r,
-                ad_B_r,
+                g.D1.grad(f_B_r_bc),
             ]
             for m in range(len(u)):
                 if m == self.U_GTT:
