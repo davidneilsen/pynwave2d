@@ -16,13 +16,16 @@ from nwave import Grid1D, ExplicitFirst642_1D, ExplicitSecond642_1D, FilterApply
 
 
 class RadiationDerivativeTests(unittest.TestCase):
-    def check(self, filtered):
+    def check(self, filtered, advective=True):
         g = Grid1D({'Nx': 161, 'Xmin': -20., 'Xmax': 20., 'NGhost': 3}, cell_centered=True)
         r = g.xi[0]
         N = len(r) // 2
         r[:N] = -r[-1:-N - 1:-1]  # exactly mirror-symmetric grid
         g.set_D1(ExplicitFirst642_1D(g.dx[0]))
         g.set_D2(ExplicitSecond642_1D(g.dx[0]))
+        # Without upwinding the bulk's ad_* already are centred derivatives,
+        # which the boundary reuses instead of recomputing.
+        g.D1.HAVE_ADVECTIVE_DERIV = advective
         if filtered:
             g.num_filters = 1
             g.Filter = [SimpleNamespace(apply_filter=FilterApply.APPLY_DERIVS,
@@ -75,6 +78,10 @@ class RadiationDerivativeTests(unittest.TestCase):
 
     def test_derivative_filter_policy(self):
         self.check(True)
+
+    def test_without_upwinding(self):
+        self.check(False, advective=False)
+        self.check(True, advective=False)
 
 
 if __name__ == '__main__':

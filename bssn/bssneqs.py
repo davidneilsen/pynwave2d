@@ -476,21 +476,27 @@ class BSSN(Equations):
         # Apply outer boundary conditions at r = rmax
         if (self.outer_bc == BSSNOuterBCType.SOMMERFELD):
             ng = g.nghost
-            # Radiation needs ordinary radial derivatives, not derivatives
-            # upwinded for beta*du/dr in the bulk. In particular, beta=0 must
-            # not select the same one-sided advection stencil at both ends.
-            f_A_rr_bc = filderivs.filter(A_rr) if filderivs is not None else A_rr
-            f_B_r_bc = filderivs.filter(B_r) if filderivs is not None else B_r
+            # Radiation needs ordinary (centred) radial derivatives, not the
+            # beta-upwinded ones used for advection: with beta = 0 the upwind
+            # choice picks the same one-sided stencil at both ends and breaks
+            # the fields' parity.  Without upwinding or derivative filtering,
+            # ad_A_rr and ad_B_r already are the centred derivatives.
+            if filderivs is None and not (USE_ADVECTION and g.D1.HAVE_ADVECTIVE_DERIV):
+                d_A_rr_bc, d_B_r_bc = ad_A_rr, ad_B_r
+            else:
+                f_A_rr_bc = filderivs.filter(A_rr) if filderivs is not None else A_rr
+                f_B_r_bc = filderivs.filter(B_r) if filderivs is not None else B_r
+                d_A_rr_bc, d_B_r_bc = g.D1.grad(f_A_rr_bc), g.D1.grad(f_B_r_bc)
             dxu = [
                 d_chi,
                 d_g_rr,
                 d_g_tt,
-                g.D1.grad(f_A_rr_bc),
+                d_A_rr_bc,
                 d_K,
                 d_Gamma_r,
                 d_alpha,
                 d_beta_r,
-                g.D1.grad(f_B_r_bc),
+                d_B_r_bc,
             ]
             for m in range(len(u)):
                 if m == self.U_GTT:
@@ -979,13 +985,17 @@ class BSSN(Equations):
 
     @staticmethod
     def bc_spherical_gtt(dtu, q, dq, r, v, ng, extended_domain):
-        """Sommerfeld on q=g_theta_theta/r**2-1, transformed to the raw RHS.
+        """Sommerfeld condition for gtt, applied to its deviation from flat space.
 
-        q_t = -v * (q_R + q/R), R=abs(r). The derivative of q is computed
-        directly with the grid operator, avoiding cancellation of the r**2
-        background. Only outer RHS cells are changed. With derivative filtering,
-        dq is the derivative of filtered q; the algebraic q remains unfiltered,
-        matching the existing derivative-filter/raw-factor convention.
+        Writing gtt = r**2 (1 + q), q falls off like 1/R (R = |r|), so the
+        outgoing-wave condition is q_t = -v (q_R + q/R) and d_t gtt = r**2 q_t;
+        sign(r) points the derivative outward on the negative-r side.  Only
+        the outer ng cells (both ends on the extended domain) are changed.
+
+        dq should be the grid derivative of q itself: differentiating gtt and
+        subtracting 2 gtt/r would cancel two large r**2 terms.  Under derivative
+        filtering dq comes from the filtered q while q stays unfiltered, as for
+        the other fields.
         """
         regions = [slice(-ng, None)]
         if extended_domain:
