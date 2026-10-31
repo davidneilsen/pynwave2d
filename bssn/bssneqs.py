@@ -9,6 +9,7 @@ from numba import njit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from nwave import *
 import gauges
+import sommerfeld_tail as tail_bc
 
 DEBUG = False
 
@@ -70,6 +71,7 @@ class BSSN(Equations):
         outer_bc=BSSNOuterBCType.SOMMERFELD,
         have_d2=True,
         lapse_gauge=None,
+        sommerfeld_tail=True,
     ):
         """
         Initialize the BSSN equations.
@@ -87,15 +89,28 @@ class BSSN(Equations):
         gbssn_system : GBSSNSystem
             System of equations to use.
         outer_bc : outer boundary condition type
-        lapse_gauge : gauges.BonaMasso
+        sommerfeld_tail : bool
+            Add the default-on one-anchor R^-3 nonradiative residual correction.
+            False preserves the ordinary Sommerfeld boundary condition.
+        lapse_gauge : gauges.LapseGauge
             Lapse gauge from gauges.LAPSE_GAUGES; default 1+log with k = 2.
+            A gauge with n_aux = 1 (the telegrapher) adds a 10th evolved field.
         """
 
-        NU = 9
+        if not isinstance(sommerfeld_tail, (bool, np.bool_)):
+            raise ValueError("sommerfeld_tail must be a boolean")
+        self.sommerfeld_tail = sommerfeld_tail
+        self._tail_geometry = (
+            tail_bc.geometry(g.xi[0], g.nghost, extended_domain)
+            if sommerfeld_tail else None
+        )
+
+        lapse_gauge = gauges.OnePlusLog() if lapse_gauge is None else lapse_gauge
+        NU = 9 + lapse_gauge.n_aux
         super().__init__(NU, g, apply_bc)
 
         self.gbssn_system = gbssn_system
-        self.lapse_gauge = gauges.OnePlusLog() if lapse_gauge is None else lapse_gauge
+        self.lapse_gauge = lapse_gauge
         self.shift_damping = (
             eta if isinstance(eta, gauges.ShiftDamping) else gauges.ConstantEta(eta)
         )
@@ -114,6 +129,7 @@ class BSSN(Equations):
         self.U_ALPHA = 6
         self.U_SHIFT = 7
         self.U_GB = 8
+        self.U_LAPSE_AUX = 9  # A = d_t alpha; only when lapse_gauge.n_aux = 1
 
         nx = g.shp[0]
         self.Nc = 3
@@ -125,8 +141,11 @@ class BSSN(Equations):
         self.MOM = 1
         self.GAMCON = 2
         self.u_names = ["chi", "grr", "gtt", "Arr", "K", "Gt", "alpha", "beta", "gB"]
+        self.u_names += self.lapse_gauge.aux_names
         self.c_names = ["ham", "mom", "gamcom"]
         self.outer_bc = outer_bc
+        # gtt's falloff/asymptote entries are unused: rhs() applies
+        # bc_spherical_gtt to it instead.
         self.u_falloff = [
             1,
             1,
@@ -138,6 +157,7 @@ class BSSN(Equations):
             1,
             1,
         ]  # alpha, beta, gB
+        self.u_falloff += [2] * self.lapse_gauge.n_aux  # A = d_t alpha falls off like K
         self.u_inf = [
             1,
             1,
@@ -149,6 +169,7 @@ class BSSN(Equations):
             0,
             0,
         ]  # alpha, beta, gB
+        self.u_inf += [0] * self.lapse_gauge.n_aux
         # Outer-boundary characteristic (wave) speeds per field, from Brown's
         # GBSSN characteristic analysis (papers/BrownSpherical/paper2.tex:370-404).
         # Proper speeds: physical/gravitational modes = 1; the Bona-Masso lapse
@@ -159,6 +180,8 @@ class BSSN(Equations):
         # lapse gauge supplies (sqrt(2) for 1+log with k=2).
         self.u_wavespeed = np.ones(len(self.u_names))
         self.u_wavespeed[self.U_ALPHA] = self.lapse_gauge.speed_inf()
+        if self.lapse_gauge.n_aux:
+            self.u_wavespeed[self.U_LAPSE_AUX] = self.lapse_gauge.speed_inf()
         # u_reference is the reference solution at the outer boundary
         # for a sponge filter.
         r = g.xi[0]
@@ -206,6 +229,10 @@ class BSSN(Equations):
         else:
             raise ValueError(
                 "Invalid initial data. Must be 'puncture' or 'EddingtonFinkelstein'."
+            )
+        if self.lapse_gauge.n_aux:
+            self.u[self.U_LAPSE_AUX][:] = self.lapse_gauge.initial_aux(
+                self.u[self.U_ALPHA], self.u[self.U_K]
             )
 
     def initial_data_puncture(self, g: Grid, params):
@@ -465,27 +492,75 @@ class BSSN(Equations):
             ad_B_r,
             d_Gamma_r,
             Gamma_r_rhs,
-            self.lapse_gauge.alpha2_f(alpha),
+            0.0 if self.lapse_gauge.n_aux else self.lapse_gauge.alpha2_f(alpha),
             self.shift_damping(r, chi, g_rr, d_chi, self.M),
             lambda_lapse,
             lambda_shift,
         )
+        if self.lapse_gauge.eta_lapse != 0.0:
+            alpha_rhs += self.lapse_gauge.eta_lapse * lap_alpha
+        if self.lapse_gauge.n_aux:
+            # Second-order lapse: d_t alpha = A + advection replaces the
+            # Bona-Masso form, and A has its own evolution equation.
+            lapse_aux = u[self.U_LAPSE_AUX]
+            d_lapse_aux = g.D1.grad(lapse_aux)
+            dtu[self.U_LAPSE_AUX][:] = (
+                self.lapse_gauge.rhs_aux(alpha, lapse_aux, K, lap_alpha, chi)
+                + lambda_lapse * beta_r * d_lapse_aux
+            )
+            alpha_rhs[:] = lapse_aux + lambda_lapse * beta_r * ad_alpha
 
         # Apply outer boundary conditions at r = rmax
         if (self.outer_bc == BSSNOuterBCType.SOMMERFELD):
             ng = g.nghost
+            # Radiation needs ordinary (centred) radial derivatives, not the
+            # beta-upwinded ones used for advection: with beta = 0 the upwind
+            # choice picks the same one-sided stencil at both ends and breaks
+            # the fields' parity.  Without upwinding or derivative filtering,
+            # ad_A_rr and ad_B_r already are the centred derivatives.
+            if filderivs is None and not (USE_ADVECTION and g.D1.HAVE_ADVECTIVE_DERIV):
+                d_A_rr_bc, d_B_r_bc = ad_A_rr, ad_B_r
+            else:
+                f_A_rr_bc = filderivs.filter(A_rr) if filderivs is not None else A_rr
+                f_B_r_bc = filderivs.filter(B_r) if filderivs is not None else B_r
+                d_A_rr_bc, d_B_r_bc = g.D1.grad(f_A_rr_bc), g.D1.grad(f_B_r_bc)
             dxu = [
                 d_chi,
                 d_g_rr,
                 d_g_tt,
-                ad_A_rr,
+                d_A_rr_bc,
                 d_K,
                 d_Gamma_r,
                 d_alpha,
                 d_beta_r,
-                ad_B_r,
+                d_B_r_bc,
             ]
+            if self.lapse_gauge.n_aux:
+                dxu.append(d_lapse_aux)
             for m in range(len(u)):
+                if m == self.U_GTT:
+                    # The spherical coordinate background is r**2, not a
+                    # constant asymptote. Radiate its dimensionless deviation.
+                    q = u[m] / r**2 - 1.0
+                    f_q = filderivs.filter(q) if filderivs is not None else q
+                    dq = g.D1.grad(f_q)
+                    if self.sommerfeld_tail:
+                        tail_bc.apply(
+                            dtu[m], q, dq, r, 1.0, 0.0, self.u_wavespeed[m],
+                            *self._tail_geometry, spherical_gtt=True,
+                        )
+                        continue
+                    BSSN.bc_spherical_gtt(
+                        dtu[m], q, dq, r,
+                        self.u_wavespeed[m], ng, self.extended_domain,
+                    )
+                    continue
+                if self.sommerfeld_tail:
+                    tail_bc.apply(
+                        dtu[m], u[m], dxu[m], r, self.u_falloff[m],
+                        self.u_inf[m], self.u_wavespeed[m], *self._tail_geometry,
+                    )
+                    continue
                 BSSN.bc_sommerfeld(
                     dtu[m],
                     u[m],
@@ -887,6 +962,9 @@ class BSSN(Equations):
             set_inner_regularity(u[self.U_SHIFT], ng, -1)
             set_inner_regularity(u[self.U_GB], ng, -1)
 
+        if self.lapse_gauge.n_aux and not self.extended_domain:
+            set_inner_regularity(u[self.U_LAPSE_AUX], ng, 1)  # A is even, like alpha
+
     def cal_constraints(self, u, g: Grid):
         """
         Calculate the constraints for the BSSN equations.
@@ -961,6 +1039,31 @@ class BSSN(Equations):
         )
 
     @staticmethod
+    def bc_spherical_gtt(dtu, q, dq, r, v, ng, extended_domain):
+        """Sommerfeld condition for gtt, applied to its deviation from flat space.
+
+        Writing gtt = r**2 (1 + q), q falls off like 1/R (R = |r|), so the
+        outgoing-wave condition is q_t = -v (q_R + q/R) and d_t gtt = r**2 q_t;
+        sign(r) points the derivative outward on the negative-r side.  Only
+        the outer ng cells (both ends on the extended domain) are changed.
+
+        dq should be the grid derivative of q itself: differentiating gtt and
+        subtracting 2 gtt/r would cancel two large r**2 terms.  Under derivative
+        filtering dq comes from the filtered q while q stays unfiltered, as for
+        the other fields.
+        """
+        regions = [slice(-ng, None)]
+        if extended_domain:
+            regions.append(slice(0, ng))
+        for region in regions:
+            R = np.abs(r[region])
+            if np.any(R == 0):
+                raise ValueError("Outer radial boundary cannot contain r=0")
+            dtu[region] = -v * r[region]**2 * (
+                np.sign(r[region]) * dq[region] + q[region] / R
+            )
+
+    @staticmethod
     def bc_sommerfeld(dtu, u, dxu, r, n_falloff, u_inf, v, ng, extended_domain):
         """
         Radiative (Sommerfeld) outer boundary condition with per-variable
@@ -972,8 +1075,9 @@ class BSSN(Equations):
         the falloff term uses the positive radius at both boundaries.
 
         The per-variable falloff power n and asymptotic value u_inf encode each
-        field's radial structure (e.g. gtt ~ r^2 via n<0). The supplied speed
-        v is retained at both boundaries.
+        field's radial structure (n<0 takes u_inf = r[-1]**|n|). The supplied
+        speed v is retained at both boundaries.  gtt uses bc_spherical_gtt
+        instead, since its r**2 background is not a constant asymptote.
         """
         if n_falloff < 0:
             u_inf = r[-1] ** (abs(n_falloff))

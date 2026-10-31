@@ -119,6 +119,37 @@ Lapse (`[lapse]`), Bona-Massó slicing ∂_t α = β ∂_r α − α² f(α) K:
 
 The outer Sommerfeld speed for α is the gauge's asymptotic speed √f(1).
 
+Every Bona-Massó gauge also accepts `eta_lapse` (default 0.0), which adds
+Laplacian damping `+ eta_lapse D²α`.  The term vanishes for any constant
+lapse and damps short wavelengths fastest (rate `eta_lapse k²/2`), but it is
+parabolic, so large values need a smaller time step.  Around `0.01–0.03` is
+practical at `dr = 0.02`.
+
+```toml
+[lapse]
+type = "1+log"
+eta_lapse = 0.02
+```
+
+The experimental `"telegrapher"` lapse is second order in time.  It evolves
+a 10th field, `lapseA` = ∂_t α:
+
+    ∂_t α = A + β ∂_r α
+    ∂_t A = c² D²α − 2μ (A + 2αK) + s μ² g (α − α_ref) + β ∂_r A
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `c` | 1.5 | gauge speed; also the Sommerfeld speed of α and A |
+| `mu` | 1.0 | damping rate |
+| `mu2_sign` | −1.0 | s in [−1, 1]; −1 is distortionless (every k moves at c), 0 drops the mass term |
+| `mu2_ref` | `"chi"` | α_ref: `"none"`, `"unity"`, `"chi"` (√χ), `"chi_clamped"` (√min(χ,1)), `"initial"` (α at t = 0) |
+| `mu2_gate` | `"none"` | g: `"none"`, `"alpha"`, `"alpha2"`, `"chi1"` (off once χ > 1 + 8 `gate_width`) |
+| `gate_width` | 0.05 | width of the `"chi1"` gate |
+
+A starts at the 1+log equilibrium −2αK (zero for puncture data).  See
+`gauges/telegrapher.py` for why the mass term needs a reference lapse and a gate.
+`lapseA` is written to the `.curve` snapshots after `gB`.
+
 Shift damping (`[shift_damping]`), the η in ∂_t B = … − η B:
 
 | `type` | η | Keys (default) |
@@ -134,9 +165,11 @@ top-level `eta = ...` is read as `[shift_damping] type = "constant"`, and an
 absent `[lapse]` table means 1+log with k = 2 (giving both forms of `eta` is
 an error).
 
-To add a gauge, write a class in `gauges/lapse.py` or `gauges/shift.py` with
-the `@register_lapse("name")` or `@register_shift("name")` decorator; its
-constructor arguments are its parameter-file keys.  Nothing else needs editing.
+To add a gauge, write a class in `gauges/lapse.py`, `gauges/shift.py` or a new
+module imported in `gauges/__init__.py`, with the `@register_lapse("name")` or
+`@register_shift("name")` decorator; its constructor arguments are its
+parameter-file keys.  A lapse gauge that needs an extra evolved field sets
+`n_aux`, `aux_names`, `initial_aux()` and `rhs_aux()`, as the telegrapher does.
 
 ### Boundaries and diagnostics
 
@@ -162,9 +195,14 @@ constructor arguments are its parameter-file keys.  Nothing else needs editing.
 - **`bssn_NNNN.curve`** — snapshot at step NNNN: a `# TIME t` header, then one
   `# name` block per field with two columns `x  value`.  Fields in order:
   `chi, grr, gtt, Arr, K, Gt, alpha, beta, gB`, then constraints `ham, mom, gamcom`.
-- **`bssn_constraints.dat`** — CSV with columns `time, Ham, Mom, radius_bh, mass_bh`,
-  written every `print_interval` steps.  Norms exclude the region inside the
-  horizon and outside `bhmask_outer_radius`.
+- **`bssn_constraints.dat`** — CSV with columns
+  `time, Ham, Mom, radius_bh, mass_bh, horizon_found, mask_inner_radius,
+  Gamcon`,
+  written every `print_interval` steps.  Norms exclude the region inside
+  `mask_inner_radius` and outside `bhmask_outer_radius`.  When the horizon
+  finder fails, `horizon_found` is `False`, `radius_bh` and `mass_bh` are 0,
+  and the mask keeps the last valid horizon radius.  `Gamcon` is the norm
+  of the Gamma-tilde definition constraint.
 
 ---
 
@@ -192,3 +230,35 @@ constructor arguments are its parameter-file keys.  Nothing else needs editing.
 + Sommerfeld outer boundary conditions
 + Add KO dissipation
 + Add option to mask constraints near punctures
+
+## Sommerfeld residual tail
+
+The outer Sommerfeld condition assumes every field is an outgoing wave with
+a known falloff.  The remaining nonradiative part of the solution makes the
+boundary RHS disagree with the bulk equations.  Following the Einstein
+Toolkit's NewRad, the boundary RHS is corrected using the last physical point
+`a` on each outer side:
+
+```
+E_a      = bulk_RHS(a) - Sommerfeld_RHS(a)
+RHS(R)   = Sommerfeld_RHS(R) + (R_a / R)^3 E_a,      R = |r|
+```
+
+The correction is recomputed at every Runge-Kutta stage and changes only the
+boundary points.  `gtt` is corrected in the radiated variable
+`q = gtt/r^2 - 1`.  It is on by default; set `sommerfeld_tail = false` at the
+top level of the parameter file (before any table) to recover the plain
+Sommerfeld condition.
+
+Over the outermost 5 M of a puncture run this lowers the constraint norms by
+factors of 10^2-10^4 with E642 and 10^3-10^5 with JT4 and JT6.  JP6 is
+currently broken (not convergent), and with it the correction makes the
+outer norms worse.  It also reduces what the boundary reflects into the
+interior: on a +-20 M domain, compared with a +-100 M run, the error inside
+|r| < 10 M is 10-250x smaller up to t = 25 M and still about 2x smaller at
+t = 40 M (JT4 and E642).  It does not make the boundary convergent: the
+error that remains comes from the R^-3 model, so it does not shrink with
+resolution, and once it reaches the interior it sets a floor on the
+constraints there.
+
+Background: [NewRad documentation](https://einsteintoolkit.org/thornguide/EinsteinEvolve/NewRad/documentation.html).
