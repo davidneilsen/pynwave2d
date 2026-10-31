@@ -256,6 +256,9 @@ currently broken (not convergent), and with it the correction makes the
 outer norms worse.  It also reduces what the boundary reflects into the
 interior: on a +-20 M domain, compared with a +-100 M run, the error inside
 |r| < 10 M is 10-250x smaller up to t = 25 M and still about 2x smaller at
-t = 40 M (JT4 and E642).
+t = 40 M (JT4 and E642).  It does not make the boundary convergent: the
+error that remains comes from the R^-3 model, so it does not shrink with
+resolution, and once it reaches the interior it sets a floor on the
+constraints there.
 
 Background: [NewRad documentation](https://einsteintoolkit.org/thornguide/EinsteinEvolve/NewRad/documentation.html).
