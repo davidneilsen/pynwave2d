@@ -486,6 +486,16 @@ class BSSN(Equations):
                 ad_B_r,
             ]
             for m in range(len(u)):
+                if m == self.U_GTT:
+                    # The spherical coordinate background is r**2, not a
+                    # constant asymptote. Radiate its dimensionless deviation.
+                    q = u[m] / r**2 - 1.0
+                    f_q = filderivs.filter(q) if filderivs is not None else q
+                    BSSN.bc_spherical_gtt(
+                        dtu[m], q, g.D1.grad(f_q), r,
+                        self.u_wavespeed[m], ng, self.extended_domain,
+                    )
+                    continue
                 BSSN.bc_sommerfeld(
                     dtu[m],
                     u[m],
@@ -959,6 +969,27 @@ class BSSN(Equations):
             r,
             nghost,
         )
+
+    @staticmethod
+    def bc_spherical_gtt(dtu, q, dq, r, v, ng, extended_domain):
+        """Sommerfeld on q=g_theta_theta/r**2-1, transformed to the raw RHS.
+
+        q_t = -v * (q_R + q/R), R=abs(r). The derivative of q is computed
+        directly with the grid operator, avoiding cancellation of the r**2
+        background. Only outer RHS cells are changed. With derivative filtering,
+        dq is the derivative of filtered q; the algebraic q remains unfiltered,
+        matching the existing derivative-filter/raw-factor convention.
+        """
+        regions = [slice(-ng, None)]
+        if extended_domain:
+            regions.append(slice(0, ng))
+        for region in regions:
+            R = np.abs(r[region])
+            if np.any(R == 0):
+                raise ValueError("Outer radial boundary cannot contain r=0")
+            dtu[region] = -v * r[region]**2 * (
+                np.sign(r[region]) * dq[region] + q[region] / R
+            )
 
     @staticmethod
     def bc_sommerfeld(dtu, u, dxu, r, n_falloff, u_inf, v, ng, extended_domain):
