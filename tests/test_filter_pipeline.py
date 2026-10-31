@@ -2,11 +2,9 @@
 
 Run: python -m unittest discover -s tests -p test_filter_pipeline.py -v
 """
-import builtins
 from pathlib import Path
 import sys
 from types import SimpleNamespace
-import typing
 import unittest
 from unittest.mock import patch
 
@@ -14,9 +12,6 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / 'bssn')]
-# Upstream bssnutils uses Any without importing it (fixed in #2); remove this
-# line once #2 merges.
-builtins.Any = typing.Any
 import bssnutils
 from nwave import RK4, Filter1D, FilterApply, FilterType, KreissOligerFilterO6_1D
 

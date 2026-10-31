@@ -3,20 +3,15 @@
 Run: python -m unittest discover -s tests -p test_bssn_rk_boundary.py -v
 BSSN_TEST_ROOT optionally selects an unmodified source tree as a baseline.
 """
-import builtins
 import os
 from pathlib import Path
 import sys
-import typing
 import unittest
 
 import numpy as np
 
 ROOT = Path(os.environ.get("BSSN_TEST_ROOT", Path(__file__).resolve().parents[1]))
 sys.path[:0] = [str(ROOT / 'bssn'), str(ROOT)]
-# Upstream bssnutils uses Any without importing it (fixed in #2); remove this
-# line once #2 merges.
-builtins.Any = typing.Any
 import bssneqs as b
 from nwave import Grid1D
 
