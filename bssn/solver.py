@@ -132,7 +132,7 @@ def main(parfile):
     conname = f"{output_dir}/bssn_constraints.dat"
     confile = open(conname, mode="w", newline="")
     writer = csv.writer(confile)
-    writer.writerow(["time", "Ham", "Mom", "radius_bh", "mass_bh", "horizon_found", "mask_inner_radius"])
+    writer.writerow(["time", "Ham", "Mom", "radius_bh", "mass_bh", "horizon_found", "mask_inner_radius", "Gamcon"])
     writer.writerow(
         [
             time,
@@ -142,6 +142,7 @@ def main(parfile):
             mbh,
             horizon_found,
             mask_radius,
+            l2norm_mask(eqs.C[2], dr, bhmask),
         ]
     )
 
@@ -184,11 +185,12 @@ def main(parfile):
         if i % print_interval == 0:
             hamnorm = l2norm_mask(eqs.C[0], dr, bhmask)
             momnorm = l2norm_mask(eqs.C[1], dr, bhmask)
+            gamnorm = l2norm_mask(eqs.C[2], dr, bhmask)
             print(
-                f"Step {i:d}, t={time:.2e}, |chi|={l2norm_mask(eqs.u[0], dr, bhmask):.2e}, |grr|={l2norm_mask(eqs.u[1], dr, bhmask):.2e}, |gtt|={l2norm_mask(eqs.u[2], dr, bhmask):.2e}, |Arr|={l2norm_mask(eqs.u[3], dr, bhmask):.2e}, |K|={l2norm_mask(eqs.u[4], dr, bhmask):.2e}, |Gt|={l2norm_mask(eqs.u[5], dr, bhmask):.2e}, |alpha|={l2norm_mask(eqs.u[6], dr, bhmask):.2e}, |beta|={l2norm_mask(eqs.u[7], dr, bhmask):.2e}, |gB|={l2norm_mask(eqs.u[8], dr, bhmask):.2e}, |Ham|={hamnorm:.2e}, |Mom|={momnorm:.2e}"
+                f"Step {i:d}, t={time:.2e}, |chi|={l2norm_mask(eqs.u[0], dr, bhmask):.2e}, |grr|={l2norm_mask(eqs.u[1], dr, bhmask):.2e}, |gtt|={l2norm_mask(eqs.u[2], dr, bhmask):.2e}, |Arr|={l2norm_mask(eqs.u[3], dr, bhmask):.2e}, |K|={l2norm_mask(eqs.u[4], dr, bhmask):.2e}, |Gt|={l2norm_mask(eqs.u[5], dr, bhmask):.2e}, |alpha|={l2norm_mask(eqs.u[6], dr, bhmask):.2e}, |beta|={l2norm_mask(eqs.u[7], dr, bhmask):.2e}, |gB|={l2norm_mask(eqs.u[8], dr, bhmask):.2e}, |Ham|={hamnorm:.2e}, |Mom|={momnorm:.2e}, |Gamcon|={gamnorm:.2e}"
             )
             rbh, mbh = eqs.get_ah()
-            writer.writerow([time, hamnorm, momnorm, rbh, mbh, horizon_found, mask_radius])
+            writer.writerow([time, hamnorm, momnorm, rbh, mbh, horizon_found, mask_radius, gamnorm])
         if i % output_interval == 0:
             fname = f"{output_dir}/bssn_{i:04d}.curve"
             butil.write_curve(fname, time, g.xi[0], eqs)
