@@ -162,9 +162,12 @@ constructor arguments are its parameter-file keys.  Nothing else needs editing.
 - **`bssn_NNNN.curve`** — snapshot at step NNNN: a `# TIME t` header, then one
   `# name` block per field with two columns `x  value`.  Fields in order:
   `chi, grr, gtt, Arr, K, Gt, alpha, beta, gB`, then constraints `ham, mom, gamcom`.
-- **`bssn_constraints.dat`** — CSV with columns `time, Ham, Mom, radius_bh, mass_bh`,
-  written every `print_interval` steps.  Norms exclude the region inside the
-  horizon and outside `bhmask_outer_radius`.
+- **`bssn_constraints.dat`** — CSV with columns
+  `time, Ham, Mom, radius_bh, mass_bh, horizon_found, mask_inner_radius`,
+  written every `print_interval` steps.  Norms exclude the region inside
+  `mask_inner_radius` and outside `bhmask_outer_radius`.  When the horizon
+  finder fails, `horizon_found` is `False`, `radius_bh` and `mass_bh` are 0,
+  and the mask keeps the last valid horizon radius.
 
 ---
 
