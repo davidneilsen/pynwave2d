@@ -3,6 +3,10 @@ Nx =  10000
 Xmin =-100.0
 Xmax = 100.0
 
+# Optional NRPy/NewRad-style one-anchor R^-3 residual correction.
+# Disabled by default; does not change the interior BSSN equations.
+sommerfeld_tail = false
+
 NGhost = 3
 cfl = 0.10
 D1 = ["JP6", "ME6"]

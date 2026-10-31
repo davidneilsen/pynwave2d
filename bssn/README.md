@@ -230,3 +230,35 @@ parameter-file keys.  A lapse gauge that needs an extra evolved field sets
 + Sommerfeld outer boundary conditions
 + Add KO dissipation
 + Add option to mask constraints near punctures
+
+## Optional Sommerfeld residual tail
+
+Set `sommerfeld_tail = true` at the top level of the TOML input (before
+any table headers), or pass `sommerfeld_tail=True` to `BSSN`, to enable a
+one-interior-point NRPy/NewRad-style correction. The default is `false`,
+which preserves the ordinary Sommerfeld boundary condition.
+
+At each Runge–Kutta stage, the nearest physical interior point on each outer
+side supplies `E_a = bulk_RHS_a - Sommerfeld_RHS_a`. Only the boundary RHS
+is changed, to `Sommerfeld_RHS(R) + (R_a/R)^3 E_a`, where `R = abs(r)`.
+For the angular metric this is applied in `q = gtt/r^2 - 1` units before
+converting back to `gtt`. Existing wave speeds, falloffs, derivative/filter choices, and interior
+BSSN and gauge equations are unchanged. In particular, the telegrapher
+auxiliary field retains its existing unfiltered ordinary derivative. On a positive-radius half-domain, the
+inner boundary is untouched. This option only applies to Sommerfeld boundaries.
+
+The correction targets slowly varying nonradiative residuals; it is not a
+constraint-preserving or perfectly absorbing boundary condition. Tested
+constraint-norm gains were found for E642 and for JT6 first derivatives with
+JP6 second derivatives, not every compact configuration. Using JP6 for both
+first and second derivatives increased outer momentum and Gamma-definition
+constraint norms. The current JP6 boundary closures fail polynomial consistency
+checks; an isolated moment-consistent repair restored the tail's benefit, but
+that operator repair is not included here. Leave this option disabled for the
+unrepaired JP6/JP6 pair unless independently validated for the intended configuration. Even for the successful pairs,
+lower norms do not guarantee improvement at every point or reduced reflection
+for arbitrary waves; a scalar wave test found more reflection than ordinary
+Sommerfeld. Higher-order
+multi-point extrapolations are deliberately not exposed here.
+
+Background: [Einstein Toolkit NewRad documentation](https://einsteintoolkit.org/thornguide/EinsteinEvolve/NewRad/documentation.html).

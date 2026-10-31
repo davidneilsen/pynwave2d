@@ -9,6 +9,7 @@ from numba import njit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from nwave import *
 import gauges
+import sommerfeld_tail as tail_bc
 
 DEBUG = False
 
@@ -70,6 +71,7 @@ class BSSN(Equations):
         outer_bc=BSSNOuterBCType.SOMMERFELD,
         have_d2=True,
         lapse_gauge=None,
+        sommerfeld_tail=False,
     ):
         """
         Initialize the BSSN equations.
@@ -87,10 +89,21 @@ class BSSN(Equations):
         gbssn_system : GBSSNSystem
             System of equations to use.
         outer_bc : outer boundary condition type
+        sommerfeld_tail : bool
+            Add an opt-in one-anchor R^-3 nonradiative residual correction.
+            False preserves the ordinary Sommerfeld boundary condition.
         lapse_gauge : gauges.LapseGauge
             Lapse gauge from gauges.LAPSE_GAUGES; default 1+log with k = 2.
             A gauge with n_aux = 1 (the telegrapher) adds a 10th evolved field.
         """
+
+        if not isinstance(sommerfeld_tail, (bool, np.bool_)):
+            raise ValueError("sommerfeld_tail must be a boolean")
+        self.sommerfeld_tail = sommerfeld_tail
+        self._tail_geometry = (
+            tail_bc.geometry(g.xi[0], g.nghost, extended_domain)
+            if sommerfeld_tail else None
+        )
 
         lapse_gauge = gauges.OnePlusLog() if lapse_gauge is None else lapse_gauge
         NU = 9 + lapse_gauge.n_aux
@@ -530,9 +543,22 @@ class BSSN(Equations):
                     # constant asymptote. Radiate its dimensionless deviation.
                     q = u[m] / r**2 - 1.0
                     f_q = filderivs.filter(q) if filderivs is not None else q
+                    dq = g.D1.grad(f_q)
+                    if self.sommerfeld_tail:
+                        tail_bc.apply(
+                            dtu[m], q, dq, r, 1.0, 0.0, self.u_wavespeed[m],
+                            *self._tail_geometry, spherical_gtt=True,
+                        )
+                        continue
                     BSSN.bc_spherical_gtt(
-                        dtu[m], q, g.D1.grad(f_q), r,
+                        dtu[m], q, dq, r,
                         self.u_wavespeed[m], ng, self.extended_domain,
+                    )
+                    continue
+                if self.sommerfeld_tail:
+                    tail_bc.apply(
+                        dtu[m], u[m], dxu[m], r, self.u_falloff[m],
+                        self.u_inf[m], self.u_wavespeed[m], *self._tail_geometry,
                     )
                     continue
                 BSSN.bc_sommerfeld(
