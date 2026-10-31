@@ -251,7 +251,7 @@ top level of the parameter file (before any table) to recover the plain
 Sommerfeld condition.
 
 Over the outermost 5 M of a puncture run this lowers the constraint norms by
-roughly 10^3-10^4 with E642 and 10^4-10^5 with JT4 and JT6.  JP6 is
+factors of 10^2-10^4 with E642 and 10^3-10^5 with JT4 and JT6.  JP6 is
 currently broken (not convergent), and with it the correction makes the
 outer norms worse.
 
