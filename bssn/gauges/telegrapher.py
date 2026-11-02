@@ -48,8 +48,8 @@ class Telegrapher(LapseGauge):
     n_aux = 1
     aux_names = ["lapseA"]
 
-    def __init__(self, c=1.5, mu=1.0, mu2_sign=-1.0, mu2_ref="chi",
-                 mu2_gate="none", gate_width=0.05):
+    def __init__(self, c=1.5, mu=1.0, mu2_sign=-1.0, mu2_ref="initial",
+                 mu2_gate="alpha2", gate_width=0.05):
         if c <= 0.0:
             raise ValueError("telegrapher: c must be positive")
         if mu <= 0.0:
