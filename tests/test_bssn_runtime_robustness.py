@@ -3,23 +3,18 @@
 Run: python -m unittest discover -s tests -p test_bssn_runtime_robustness.py -v
 BSSN_TEST_ROOT optionally selects an unmodified source tree as a baseline.
 """
-import builtins
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
-import typing
 import unittest
 
 import numpy as np
 
 ROOT = Path(os.environ.get("BSSN_TEST_ROOT", Path(__file__).resolve().parents[1]))
 sys.path[:0] = [str(ROOT / 'bssn'), str(ROOT)]
-# Upstream bssnutils uses Any without importing it (fixed in #2); remove this
-# line, and the copies in the subprocess snippets, once #2 merges.
-builtins.Any = typing.Any
 import bssnutils as util
 import solver
 
@@ -74,9 +69,8 @@ class RuntimeTests(unittest.TestCase):
             par = Path(d) / "params.toml"
             # No diagnostic interval occurs before the single injected step.
             par.write_text(CONFIG + f'output_dir="{d}/out"\n')
-            code = """import sys, builtins, typing
+            code = """import sys
 import numpy as np
-builtins.Any = typing.Any
 sys.path[:0] = [sys.argv[1] + '/bssn', sys.argv[1]]
 import solver
 class BadStep:

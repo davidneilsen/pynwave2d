@@ -3,7 +3,6 @@
 Run: python -m unittest discover -s tests -p test_bssn_horizon.py -v
 BSSN_TEST_ROOT optionally selects an unmodified source tree as a baseline.
 """
-import builtins
 import csv
 import json
 import os
@@ -11,16 +10,12 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import typing
 import unittest
 
 import numpy as np
 
 ROOT = Path(os.environ.get("BSSN_TEST_ROOT", Path(__file__).resolve().parents[1]))
 sys.path[:0] = [str(ROOT / 'bssn'), str(ROOT)]
-# Upstream bssnutils uses Any without importing it (fixed in #2); remove this
-# line, and the copy in the subprocess snippet, once #2 merges.
-builtins.Any = typing.Any
 import bssneqs as b
 import solver
 
@@ -67,9 +62,8 @@ class HorizonTests(unittest.TestCase):
             par.write_text(CONFIG + f'output_dir="{d}/out"\n')
             # Injected detections: 0.5, then a failure, then 0.51 only if the
             # search guess survived the failure.
-            code = """import sys, builtins, typing, json
+            code = """import sys, json
 import numpy as np
-builtins.Any = typing.Any
 sys.path[:0] = [sys.argv[1] + '/bssn', sys.argv[1]]
 import solver
 calls = []
