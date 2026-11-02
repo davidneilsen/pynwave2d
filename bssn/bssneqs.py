@@ -131,6 +131,8 @@ class BSSN(Equations):
         self.u_names += self.lapse_gauge.aux_names
         self.c_names = ["ham", "mom", "gamcom"]
         self.outer_bc = outer_bc
+        # gtt's falloff/asymptote entries are unused: rhs() applies
+        # bc_spherical_gtt to it instead.
         self.u_falloff = [
             1,
             1,
@@ -498,20 +500,41 @@ class BSSN(Equations):
         # Apply outer boundary conditions at r = rmax
         if (self.outer_bc == BSSNOuterBCType.SOMMERFELD):
             ng = g.nghost
+            # Radiation needs ordinary (centred) radial derivatives, not the
+            # beta-upwinded ones used for advection: with beta = 0 the upwind
+            # choice picks the same one-sided stencil at both ends and breaks
+            # the fields' parity.  Without upwinding or derivative filtering,
+            # ad_A_rr and ad_B_r already are the centred derivatives.
+            if filderivs is None and not (USE_ADVECTION and g.D1.HAVE_ADVECTIVE_DERIV):
+                d_A_rr_bc, d_B_r_bc = ad_A_rr, ad_B_r
+            else:
+                f_A_rr_bc = filderivs.filter(A_rr) if filderivs is not None else A_rr
+                f_B_r_bc = filderivs.filter(B_r) if filderivs is not None else B_r
+                d_A_rr_bc, d_B_r_bc = g.D1.grad(f_A_rr_bc), g.D1.grad(f_B_r_bc)
             dxu = [
                 d_chi,
                 d_g_rr,
                 d_g_tt,
-                ad_A_rr,
+                d_A_rr_bc,
                 d_K,
                 d_Gamma_r,
                 d_alpha,
                 d_beta_r,
-                ad_B_r,
+                d_B_r_bc,
             ]
             if self.lapse_gauge.n_aux:
                 dxu.append(d_lapse_aux)
             for m in range(len(u)):
+                if m == self.U_GTT:
+                    # The spherical coordinate background is r**2, not a
+                    # constant asymptote. Radiate its dimensionless deviation.
+                    q = u[m] / r**2 - 1.0
+                    f_q = filderivs.filter(q) if filderivs is not None else q
+                    BSSN.bc_spherical_gtt(
+                        dtu[m], q, g.D1.grad(f_q), r,
+                        self.u_wavespeed[m], ng, self.extended_domain,
+                    )
+                    continue
                 BSSN.bc_sommerfeld(
                     dtu[m],
                     u[m],
@@ -990,6 +1013,31 @@ class BSSN(Equations):
         )
 
     @staticmethod
+    def bc_spherical_gtt(dtu, q, dq, r, v, ng, extended_domain):
+        """Sommerfeld condition for gtt, applied to its deviation from flat space.
+
+        Writing gtt = r**2 (1 + q), q falls off like 1/R (R = |r|), so the
+        outgoing-wave condition is q_t = -v (q_R + q/R) and d_t gtt = r**2 q_t;
+        sign(r) points the derivative outward on the negative-r side.  Only
+        the outer ng cells (both ends on the extended domain) are changed.
+
+        dq should be the grid derivative of q itself: differentiating gtt and
+        subtracting 2 gtt/r would cancel two large r**2 terms.  Under derivative
+        filtering dq comes from the filtered q while q stays unfiltered, as for
+        the other fields.
+        """
+        regions = [slice(-ng, None)]
+        if extended_domain:
+            regions.append(slice(0, ng))
+        for region in regions:
+            R = np.abs(r[region])
+            if np.any(R == 0):
+                raise ValueError("Outer radial boundary cannot contain r=0")
+            dtu[region] = -v * r[region]**2 * (
+                np.sign(r[region]) * dq[region] + q[region] / R
+            )
+
+    @staticmethod
     def bc_sommerfeld(dtu, u, dxu, r, n_falloff, u_inf, v, ng, extended_domain):
         """
         Radiative (Sommerfeld) outer boundary condition with per-variable
@@ -1001,8 +1049,9 @@ class BSSN(Equations):
         the falloff term uses the positive radius at both boundaries.
 
         The per-variable falloff power n and asymptotic value u_inf encode each
-        field's radial structure (e.g. gtt ~ r^2 via n<0). The supplied speed
-        v is retained at both boundaries.
+        field's radial structure (n<0 takes u_inf = r[-1]**|n|). The supplied
+        speed v is retained at both boundaries.  gtt uses bc_spherical_gtt
+        instead, since its r**2 background is not a constant asymptote.
         """
         if n_falloff < 0:
             u_inf = r[-1] ** (abs(n_falloff))
