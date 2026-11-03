@@ -17,6 +17,7 @@ CompactFirstDerivatives = [
     DerivType.D1_JT4,
     DerivType.D1_JT6,
     DerivType.D1_JP6,
+    DerivType.D1_JP6_JT4,
     DerivType.D1_DSQ6A,
     DerivType.D1_DSQ6B,
     DerivType.D1_BYUP6,
@@ -35,6 +36,7 @@ CompactSecondDerivatives = [
     DerivType.D2_JT4,
     DerivType.D2_JT6,
     DerivType.D2_JP6,
+    DerivType.D2_JP6_JT4,
     DerivType.D2_DSQ6A,
     DerivType.D2_DSQ6B,
     DerivType.D2_BYUP6,
@@ -319,7 +321,28 @@ def _coeffs_D1_JTT6():
 
 
 def _coeffs_D2_JTT6():
-    raise NotImplementedError("D2_JTT6 coefficients are not implemented yet.")
+    """
+    Tridiagonal sixth-order second derivative (Tyler 2007, BYU MS thesis,
+    "Analysis and Implementation of High-Order Compact Finite Difference
+    Schemes": interior Table 2, boundary rows Tables 25 and 27).
+    """
+    alpha = 2 / 11
+    a = 12 / 11
+    b = 3 / 11
+    Lcoeff = np.array([alpha, 1.0, alpha])
+    Rcoeff = np.array([b / 4, a, -2 * a - b / 2, a, b / 4])
+
+    Lcoeffb0 = np.array([1.0, 126 / 11])
+    Lcoeffb1 = np.array([2 / 11, 1.0, -131 / 22])
+    Rcoeffb0 = np.array(
+        [13097 / 990, -2943 / 110, 573 / 44, 167 / 99, -18 / 11, 57 / 110, -131 / 1980]
+    )
+    Rcoeffb1 = np.array([177 / 88, -507 / 44, 783 / 44, -201 / 22, 81 / 88, -3 / 44])
+    Lbands = (1, 1)
+    Rbands = (2, 2)
+    Lmat = [Lcoeff, [Lcoeffb0, Lcoeffb1], Lbands, 1]
+    Rmat = [Rcoeff, [Rcoeffb0, Rcoeffb1], Rbands, 1]
+    return Lmat, Rmat
 
 
 def _coeffs_D1_JTP6():
@@ -355,6 +378,27 @@ def _coeffs_D2_JTP6():
     Lmat = [Lcoeff, [Lcoeffb0, Lcoeffb1], Lbands, 1]
     Rmat = [Rcoeff, [Rcoeffb0, Rcoeffb1], Rbands, 1]
     return Lmat, Rmat
+
+
+def _coeffs_D1_JP6_JT4():
+    """
+    JP6 interior with the two JT4 boundary rows (fourth order at the edge).
+    JP6's own second row drops the left beta term, so it is not consistent.
+    """
+    P, Q = _coeffs_D1_JTP6()
+    P4, Q4 = _coeffs_D1_JTT4()
+    P[1] = [P4[1][0], P4[0]]
+    Q[1] = [Q4[1][0], Q4[0]]
+    return P, Q
+
+
+def _coeffs_D2_JP6_JT4():
+    """Second-derivative counterpart of _coeffs_D1_JP6_JT4."""
+    P, Q = _coeffs_D2_JTP6()
+    P4, Q4 = _coeffs_D2_JTT4()
+    P[1] = [P4[1][0], P4[0]]
+    Q[1] = [Q4[1][0], Q4[0]]
+    return P, Q
 
 
 def _coeffs_D1_DSQ6A():
@@ -1280,10 +1324,16 @@ def build_derivative(N: int, dtype: DerivType):
         Pmat, Qmat = _coeffs_D2_JTT4()
     elif dtype == DerivType.D1_JT6:
         Pmat, Qmat = _coeffs_D1_JTT6()
+    elif dtype == DerivType.D2_JT6:
+        Pmat, Qmat = _coeffs_D2_JTT6()
     elif dtype == DerivType.D1_JP6:
         Pmat, Qmat = _coeffs_D1_JTP6()
     elif dtype == DerivType.D2_JP6:
         Pmat, Qmat = _coeffs_D2_JTP6()
+    elif dtype == DerivType.D1_JP6_JT4:
+        Pmat, Qmat = _coeffs_D1_JP6_JT4()
+    elif dtype == DerivType.D2_JP6_JT4:
+        Pmat, Qmat = _coeffs_D2_JP6_JT4()
     elif dtype == DerivType.D1_KP4:
         Pmat, Qmat = _coeffs_D1_KP4()
     elif dtype == DerivType.D1_BYUP6:
