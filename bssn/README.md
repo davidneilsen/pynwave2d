@@ -230,3 +230,41 @@ parameter-file keys.  A lapse gauge that needs an extra evolved field sets
 + Sommerfeld outer boundary conditions
 + Add KO dissipation
 + Add option to mask constraints near punctures
+
+## Sommerfeld residual tail
+
+The outer Sommerfeld condition assumes every field is an outgoing wave with
+a known falloff.  The remaining nonradiative part of the solution makes the
+boundary RHS disagree with the bulk equations.  Following the Einstein
+Toolkit's NewRad, the boundary RHS is corrected using the last physical point
+`a` on each outer side:
+
+```
+E_a      = bulk_RHS(a) - Sommerfeld_RHS(a)
+RHS(R)   = Sommerfeld_RHS(R) + (R_a / R)^3 E_a,      R = |r|
+```
+
+The correction is recomputed at every Runge-Kutta stage and changes only the
+boundary points.  `gtt` is corrected in the radiated variable
+`q = gtt/r^2 - 1`.  It is on by default; set `sommerfeld_tail = false` at the
+top level of the parameter file (before any table) to recover the plain
+Sommerfeld condition.
+
+The gain depends on the constraint, the domain and the time.  Over the
+outermost 5 M at t = 2 M it lowers the constraint norms by factors of
+10^2-10^4 with E642 and 10^3-10^5 with JT4 and JT6 on a +-100 M domain.
+On a +-20 M domain the factors are smaller (Gamcon only 60-300x).  JP6 is
+currently broken (not convergent), and with it the correction makes the
+outer norms worse.
+
+The correction also reduces what the boundary reflects into the interior: on
+a +-20 M domain, compared with a +-100 M run, the error inside |r| < 10 M is
+10-250x smaller up to t = 25 M and still about 2x smaller at t = 40 M (JT4
+and E642).  It is not better at every time, though: in E642 runs on +-20 M
+to t = 50 M, the time-averaged outer norms are lower (Ham 10x, Mom 2.5x,
+Gamcon 1.7x), but outer Mom and Gamcon are up to 1.9x larger for
+t = 25-34 M.  It does not make the boundary convergent: the error that
+remains comes from the R^-3 model, so it does not shrink with resolution, and
+once it reaches the interior it sets a floor on the constraints there.
+
+Background: [NewRad documentation](https://einsteintoolkit.org/thornguide/EinsteinEvolve/NewRad/documentation.html).
