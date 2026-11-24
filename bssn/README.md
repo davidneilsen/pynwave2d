@@ -178,6 +178,12 @@ parameter-file keys.  A lapse gauge that needs an extra evolved field sets
 | `bssn_outer_bc` | `"Sommerfeld"` | Outer BC: `"Sommerfeld"` or `"Sponge"` |
 | `bhmask_outer_radius` | 75.0 | Outer radius of the region used for constraint norms |
 
+### Constraint enforcement
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `enforce_det` | `true` | Keep det(gtilde) = `grr (gtt/r^2)^2` = 1: re-split the initial data onto it and rescale `grr`, `gtt` by det^(-1/3) after every RK stage (see below). `false` gives the unprojected evolution |
+
 ### Output
 
 | Key | Default | Description |
@@ -230,6 +236,7 @@ parameter-file keys.  A lapse gauge that needs an extra evolved field sets
 + Sommerfeld outer boundary conditions
 + Add KO dissipation
 + Add option to mask constraints near punctures
++ Enforce det(gtilde) = 1 after every RK stage (`enforce_det`)
 
 ## Sommerfeld residual tail
 
@@ -268,3 +275,33 @@ remains comes from the R^-3 model, so it does not shrink with resolution, and
 once it reaches the interior it sets a floor on the constraints there.
 
 Background: [NewRad documentation](https://einsteintoolkit.org/thornguide/EinsteinEvolve/NewRad/documentation.html).
+
+## det(gtilde) = 1 enforcement
+
+Lagrangian BSSN keeps det(gtilde) = `grr (gtt/r^2)^2` = 1 in the continuum,
+but the discrete scheme does not.  The main source is KO dissipation, which
+filters `grr` and `gtt` separately; it outweighs the RHS by 5-1000x at every
+radius.  Away from the puncture this drift converges away (about h^8 for
+r > 2).  In the first cells it does not, and on a +-20 M domain at h = 0.05
+(E642, KO6 sigma 0.5) det collapses there and `chi` goes non-finite at
+about 78 M.
+
+With `enforce_det = true`, `apply_bcs` rescales `grr` and `gtt` by
+det^(-1/3) at the end of every RK stage, as SENR/NRPy do (Ruchlin, Etienne
+and Baumgarte 2018).  The isotropic rescale is the closest point on det = 1
+in log-metric space and keeps the ratio `grr r^2 / gtt`.  On the half
+domain the mirror ghosts of `grr` and `gtt` are refilled afterwards.  A
+non-positive or non-finite det raises `FloatingPointError`.  The cost is
+about 2-4% of an RK stage.  The projection runs in `apply_bcs`, so a driver
+that builds `BSSN` itself must pass `apply_bc = BCType.FUNCTION`, as
+`solver.py` does.
+
+`initialize()` also re-splits initial data that are off det = 1, at every
+point with |det - 1| > 1e-12.  It keeps the physical metric and extrinsic
+curvature: `gtilde`, `chi` and `Arr` are multiplied by f = det^(-1/3), and
+`Gt` gets the exact matching change.  The puncture and Eddington-Finkelstein
+data already satisfy det = 1, and they are bitwise unchanged.
+
+`enforce_det = false` reproduces runs made before this option existed,
+bitwise.  Set it explicitly in parameter files whose recorded results you
+need to reproduce.
