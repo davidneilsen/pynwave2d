@@ -72,7 +72,7 @@ class BSSN(Equations):
         have_d2=True,
         lapse_gauge=None,
         sommerfeld_tail=True,
-        enforce_det=False,
+        enforce_det=True,
     ):
         """
         Initialize the BSSN equations.
@@ -98,7 +98,8 @@ class BSSN(Equations):
             det(gtilde) = g_rr (g_tt / r^2)^2 = 1 (the flat value).  KO
             dissipation applied to g_rr and g_tt separately drives det away
             from 1 near the puncture; without this the first cells collapse
-            (~78M at h = .05).  Default off (bitwise unchanged).
+            (~78M at h = .05).  Default on; False restores the unprojected
+            evolution.
         lapse_gauge : gauges.LapseGauge
             Lapse gauge from gauges.LAPSE_GAUGES; default 1+log with k = 2.
             A gauge with n_aux = 1 (the telegrapher) adds a 10th evolved field.

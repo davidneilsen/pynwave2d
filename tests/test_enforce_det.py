@@ -57,8 +57,8 @@ class EnforceDetTests(unittest.TestCase):
     def test_apply_bcs_hook(self):
         for ext in (False, True):
             g = grid(ext); r = g.xi[0]
-            on = b.BSSN(g, 1., 2., ext, enforce_det=True)
-            off = b.BSSN(g, 1., 2., ext)
+            on = b.BSSN(g, 1., 2., ext)
+            off = b.BSSN(g, 1., 2., ext, enforce_det=False)
             a, q = perturbed_metric(r)
             st_on = [np.ones_like(r) for _ in on.u]
             st_on[on.U_GRR][:], st_on[on.U_GTT][:] = a, q
@@ -69,9 +69,9 @@ class EnforceDetTests(unittest.TestCase):
             np.testing.assert_allclose(det, 1., rtol=0, atol=1e-14)
             self.assertFalse(np.allclose(st_off[off.U_GRR] * (st_off[off.U_GTT] / (r * r)) ** 2, 1.))
 
-    def test_default_off_and_validated(self):
+    def test_default_on_and_validated(self):
         g = grid(True)
-        self.assertFalse(b.BSSN(g, 1., 2., True).enforce_det)
+        self.assertTrue(b.BSSN(g, 1., 2., True).enforce_det)
         with self.assertRaises(ValueError):
             b.BSSN(g, 1., 2., True, enforce_det="yes")
 

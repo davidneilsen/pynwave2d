@@ -93,7 +93,7 @@ def main(parfile):
         have_d2=True,
         lapse_gauge=lapse_gauge,
         sommerfeld_tail=params.get("sommerfeld_tail", True),
-        enforce_det=params.get("enforce_det", False),
+        enforce_det=params.get("enforce_det", True),
     )
     eqs.initialize(g, params)
     require_finite_state(eqs.u, 0, eqs.u_names)
