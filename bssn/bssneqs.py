@@ -72,6 +72,7 @@ class BSSN(Equations):
         have_d2=True,
         lapse_gauge=None,
         sommerfeld_tail=True,
+        enforce_det=False,
     ):
         """
         Initialize the BSSN equations.
@@ -92,6 +93,12 @@ class BSSN(Equations):
         sommerfeld_tail : bool
             Add the default-on one-anchor R^-3 nonradiative residual correction.
             False preserves the ordinary Sommerfeld boundary condition.
+        enforce_det : bool
+            Rescale g_rr and g_tt by det^(-1/3) after every RK stage so that
+            det(gtilde) = g_rr (g_tt / r^2)^2 = 1 (the flat value).  KO
+            dissipation applied to g_rr and g_tt separately drives det away
+            from 1 near the puncture; without this the first cells collapse
+            (~78M at h = .05).  Default off (bitwise unchanged).
         lapse_gauge : gauges.LapseGauge
             Lapse gauge from gauges.LAPSE_GAUGES; default 1+log with k = 2.
             A gauge with n_aux = 1 (the telegrapher) adds a 10th evolved field.
@@ -100,6 +107,9 @@ class BSSN(Equations):
         if not isinstance(sommerfeld_tail, (bool, np.bool_)):
             raise ValueError("sommerfeld_tail must be a boolean")
         self.sommerfeld_tail = sommerfeld_tail
+        if not isinstance(enforce_det, (bool, np.bool_)):
+            raise ValueError("enforce_det must be a boolean")
+        self.enforce_det = bool(enforce_det)
         self._tail_geometry = (
             tail_bc.geometry(g.xi[0], g.nghost, extended_domain)
             if sommerfeld_tail and outer_bc == BSSNOuterBCType.SOMMERFELD else None
@@ -965,6 +975,9 @@ class BSSN(Equations):
         if self.lapse_gauge.n_aux and not self.extended_domain:
             set_inner_regularity(u[self.U_LAPSE_AUX], ng, 1)  # A is even, like alpha
 
+        if self.enforce_det:
+            enforce_unit_det(u[self.U_GRR], u[self.U_GTT], g.xi[0])
+
     def cal_constraints(self, u, g: Grid):
         """
         Calculate the constraints for the BSSN equations.
@@ -1312,6 +1325,21 @@ def extrapolate_deriv(u, order=4):
         ) / 10756
     else:
         raise ValueError("Invalid order. Must be 4, 5 or 6.")
+
+
+def enforce_unit_det(g_rr, g_tt, r):
+    """Rescale g_rr, g_tt in place by det^(-1/3) so g_rr (g_tt/r^2)^2 = 1.
+
+    The isotropic rescaling is the closest point on det = 1 in the
+    log-metric sense and keeps the ratio g_rr r^2 / g_tt.  A non-positive
+    or non-finite det is an evolution failure: raise rather than mask it.
+    """
+    det = g_rr * (g_tt / (r * r)) ** 2
+    if not (np.all(np.isfinite(det)) and np.all(det > 0.0)):
+        raise FloatingPointError("enforce_det: non-positive or non-finite det(gtilde)")
+    fact = 1.0 / np.cbrt(det)
+    g_rr *= fact
+    g_tt *= fact
 
 
 def set_inner_regularity(u, ng, parity=1):
