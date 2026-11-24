@@ -7,6 +7,9 @@ Xmax = 100.0
 # changes only the boundary points.
 sommerfeld_tail = true
 
+# Keep det(gtilde) = 1 (initial re-split plus a per-stage rescale; see README).
+enforce_det = true
+
 NGhost = 3
 cfl = 0.10
 D1 = ["JP6", "ME6"]

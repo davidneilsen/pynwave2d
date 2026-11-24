@@ -72,6 +72,7 @@ class BSSN(Equations):
         have_d2=True,
         lapse_gauge=None,
         sommerfeld_tail=True,
+        enforce_det=True,
     ):
         """
         Initialize the BSSN equations.
@@ -92,6 +93,13 @@ class BSSN(Equations):
         sommerfeld_tail : bool
             Add the default-on one-anchor R^-3 nonradiative residual correction.
             False preserves the ordinary Sommerfeld boundary condition.
+        enforce_det : bool
+            Rescale g_rr and g_tt by det^(-1/3) after every RK stage so that
+            det(gtilde) = g_rr (g_tt / r^2)^2 = 1 (the flat value).  KO
+            dissipation applied to g_rr and g_tt separately drives det away
+            from 1 near the puncture; without this the first cells collapse
+            (~78M at h = .05).  Default on; False restores the unprojected
+            evolution.
         lapse_gauge : gauges.LapseGauge
             Lapse gauge from gauges.LAPSE_GAUGES; default 1+log with k = 2.
             A gauge with n_aux = 1 (the telegrapher) adds a 10th evolved field.
@@ -100,6 +108,9 @@ class BSSN(Equations):
         if not isinstance(sommerfeld_tail, (bool, np.bool_)):
             raise ValueError("sommerfeld_tail must be a boolean")
         self.sommerfeld_tail = sommerfeld_tail
+        if not isinstance(enforce_det, (bool, np.bool_)):
+            raise ValueError("enforce_det must be a boolean")
+        self.enforce_det = bool(enforce_det)
         self._tail_geometry = (
             tail_bc.geometry(g.xi[0], g.nghost, extended_domain)
             if sommerfeld_tail and outer_bc == BSSNOuterBCType.SOMMERFELD else None
@@ -230,10 +241,63 @@ class BSSN(Equations):
             raise ValueError(
                 "Invalid initial data. Must be 'puncture' or 'EddingtonFinkelstein'."
             )
+        if self.enforce_det:
+            self.project_initial_det(g)
         if self.lapse_gauge.n_aux:
             self.u[self.U_LAPSE_AUX][:] = self.lapse_gauge.initial_aux(
                 self.u[self.U_ALPHA], self.u[self.U_K]
             )
+
+    # Initial data whose det(gtilde) differs from 1 by more than this are
+    # re-split onto det = 1 by project_initial_det; below it the per-stage
+    # projection absorbs the round-off.
+    INITIAL_DET_TOL = 1.0e-12
+
+    def project_initial_det(self, g: Grid):
+        """Re-split initial data onto det(gtilde) = 1, keeping the physical data.
+
+        Called by initialize() when enforce_det is on.  Points that already
+        satisfy det = 1 to INITIAL_DET_TOL are left bitwise unchanged; that
+        is every point of the puncture and Eddington-Finkelstein data on
+        main.  At the other points, with f = det^(-1/3), the conformal
+        split is changed but the physical metric and extrinsic curvature
+        are not:
+
+            gtilde -> f gtilde,  chi -> f chi,  Atilde_rr -> f Atilde_rr,
+            Gt     -> (Gt - (ln f)' / (2 g_rr)) / f.
+
+        The Gt update is the exact change of Gt^r = g_rr'/(2 g_rr^2)
+        - g_tt'/(g_rr g_tt) under g -> f g; (ln f)' uses the grid's D1.
+        The per-stage projection (enforce_unit_det) instead rescales only
+        gtilde, removing the discrete constraint drift as SENR/NRPy do.
+        """
+        r = g.xi[0]
+        g_rr = self.u[self.U_GRR]
+        g_tt = self.u[self.U_GTT]
+        det = g_rr * (g_tt / (r * r)) ** 2
+        if not (np.all(np.isfinite(det)) and np.all(det > 0.0)):
+            raise ValueError("initial data: non-positive or non-finite det(gtilde)")
+        off = np.abs(det - 1.0) > self.INITIAL_DET_TOL
+        if not np.any(off):
+            return
+        if g.D1 is None:
+            raise ValueError(
+                "project_initial_det needs the grid's D1 operator to update Gt"
+            )
+        # Only points off det = 1 change, so exact data outside a blended
+        # region stay bitwise exact (the D1 stencil would otherwise spread
+        # truncation error from the region's edge into them).
+        ln_f = np.where(off, -np.log(det) / 3.0, 0.0)
+        f = np.exp(ln_f)
+        Gt = self.u[self.U_GT]
+        Gt[off] = ((Gt - 0.5 * g.D1.grad(ln_f) / g_rr) / f)[off]
+        for k in (self.U_GRR, self.U_GTT, self.U_CHI, self.U_ARR):
+            self.u[k][off] *= f[off]
+        if not self.extended_domain:
+            ng = g.nghost
+            for k, parity in ((self.U_CHI, 1), (self.U_GRR, 1), (self.U_GTT, 1),
+                              (self.U_ARR, 1), (self.U_GT, -1)):
+                set_inner_regularity(self.u[k], ng, parity)
 
     def initial_data_puncture(self, g: Grid, params):
         """
@@ -1003,6 +1067,14 @@ class BSSN(Equations):
         if self.lapse_gauge.n_aux and not self.extended_domain:
             set_inner_regularity(u[self.U_LAPSE_AUX], ng, 1)  # A is even, like alpha
 
+        if self.enforce_det:
+            enforce_unit_det(u[self.U_GRR], u[self.U_GTT], g.xi[0])
+            if not self.extended_domain:
+                # The ghosts' r differs from their mirrors' by round-off, so
+                # the rescale alone breaks parity at 1e-15; refill them.
+                set_inner_regularity(u[self.U_GRR], ng, 1)
+                set_inner_regularity(u[self.U_GTT], ng, 1)
+
     def cal_constraints(self, u, g: Grid):
         """
         Calculate the constraints for the BSSN equations.
@@ -1350,6 +1422,21 @@ def extrapolate_deriv(u, order=4):
         ) / 10756
     else:
         raise ValueError("Invalid order. Must be 4, 5 or 6.")
+
+
+def enforce_unit_det(g_rr, g_tt, r):
+    """Rescale g_rr, g_tt in place by det^(-1/3) so g_rr (g_tt/r^2)^2 = 1.
+
+    The isotropic rescaling is the closest point on det = 1 in the
+    log-metric sense and keeps the ratio g_rr r^2 / g_tt.  A non-positive
+    or non-finite det is an evolution failure: raise rather than mask it.
+    """
+    det = g_rr * (g_tt / (r * r)) ** 2
+    if not (np.all(np.isfinite(det)) and np.all(det > 0.0)):
+        raise FloatingPointError("enforce_det: non-positive or non-finite det(gtilde)")
+    fact = 1.0 / np.cbrt(det)
+    g_rr *= fact
+    g_tt *= fact
 
 
 def set_inner_regularity(u, ng, parity=1):

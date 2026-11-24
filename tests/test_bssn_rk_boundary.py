@@ -19,7 +19,7 @@ from nwave import Grid1D
 class StageBoundaryTests(unittest.TestCase):
     def test_stage_regularization(self):
         g = Grid1D({'Nx': 21, 'NGhost': 3, 'Xmin': 0., 'Xmax': 2.}, cell_centered=True)
-        e = b.BSSN(g, 1., 2., False)
+        e = b.BSSN(g, 1., 2., False, enforce_det=False)
         for v in e.u:
             v[:] = np.arange(len(v))
         base = [v.copy() for v in e.u]
@@ -34,7 +34,7 @@ class StageBoundaryTests(unittest.TestCase):
 
     def test_extended_unchanged(self):
         g = Grid1D({'Nx': 21, 'NGhost': 3, 'Xmin': -2., 'Xmax': 2.}, cell_centered=True)
-        e = b.BSSN(g, 1., 2., True)
+        e = b.BSSN(g, 1., 2., True, enforce_det=False)
         stage = [np.arange(len(v), dtype=float) + 100 for v in e.u]
         before = [v.copy() for v in stage]
         e.apply_bcs(stage, g)
