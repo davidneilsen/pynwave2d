@@ -146,15 +146,18 @@ class InitialDataTests(unittest.TestCase):
         for ext, idata in ((False, 'Puncture'), (True, 'Puncture'),
                            (False, 'EddingtonFinkelstein')):
             on, _ = setup(ext, True, initial_data=idata)
-            off, _ = setup(ext, False, initial_data=idata)
+            off, g = setup(ext, False, initial_data=idata)
+            if np.max(np.abs(det(off, g) - 1.0)) > b.BSSN.INITIAL_DET_TOL:
+                continue  # e.g. EF data with a blended interior (#14)
             for u1, u2 in zip(on.u, off.u):
                 np.testing.assert_array_equal(u1, u2)
 
     def resplit_error(self, nx):
-        # EF data (det = 1 analytically) given a different conformal split
-        # with det = f^-3: the projection must restore the original split,
-        # Gt to the D1 truncation error.
-        ref, g = setup(False, False, nx=nx, xmax=10.0, initial_data='EddingtonFinkelstein')
+        # EF data (on det = 1) given a different conformal split with
+        # det = f^-3: the projection must restore the original split, Gt to
+        # the D1 truncation error.  ref is itself projected, so this holds
+        # for any EF data, blended or not.
+        ref, g = setup(False, True, nx=nx, xmax=10.0, initial_data='EddingtonFinkelstein')
         e, _ = setup(False, True, nx=nx, xmax=10.0, initial_data='EddingtonFinkelstein')
         r = g.xi[0]
         f = 1.0 + 0.2 * np.exp(-(r - 4.0) ** 2)
@@ -164,9 +167,11 @@ class InitialDataTests(unittest.TestCase):
             e.u[k][:] = ref.u[k] / f
         e.u[e.U_GT][:] = f * ref.u[ref.U_GT] + 0.5 * dlnf * f / g_rr0
         e.project_initial_det(g)
-        np.testing.assert_allclose(det(e, g), 1.0, rtol=0, atol=3e-14)
+        # Points already within INITIAL_DET_TOL of det = 1 are left alone.
+        tol = b.BSSN.INITIAL_DET_TOL
+        np.testing.assert_allclose(det(e, g), 1.0, rtol=0, atol=tol)
         for k in (e.U_GRR, e.U_GTT, e.U_CHI, e.U_ARR):
-            np.testing.assert_allclose(e.u[k], ref.u[k], rtol=1e-13)
+            np.testing.assert_allclose(e.u[k], ref.u[k], rtol=2 * tol)
         m = (r > 1.5) & (r < 8.5)
         return np.max(np.abs(e.u[e.U_GT][m] - ref.u[ref.U_GT][m]))
 
