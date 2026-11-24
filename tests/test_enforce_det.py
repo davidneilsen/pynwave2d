@@ -66,7 +66,7 @@ class EnforceDetTests(unittest.TestCase):
             on.apply_bcs(st_on, g)
             off.apply_bcs(st_off, g)
             det = st_on[on.U_GRR] * (st_on[on.U_GTT] / (r * r)) ** 2
-            np.testing.assert_allclose(det, 1., rtol=0, atol=1e-14)
+            np.testing.assert_allclose(det, 1., rtol=0, atol=2e-14)  # half-domain mirror ghosts: r round-off
             self.assertFalse(np.allclose(st_off[off.U_GRR] * (st_off[off.U_GTT] / (r * r)) ** 2, 1.))
 
     def test_default_on_and_validated(self):

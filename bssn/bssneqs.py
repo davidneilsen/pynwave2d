@@ -978,6 +978,11 @@ class BSSN(Equations):
 
         if self.enforce_det:
             enforce_unit_det(u[self.U_GRR], u[self.U_GTT], g.xi[0])
+            if not self.extended_domain:
+                # The ghosts' r differs from their mirrors' by round-off, so
+                # the rescale alone breaks parity at 1e-15; refill them.
+                set_inner_regularity(u[self.U_GRR], ng, 1)
+                set_inner_regularity(u[self.U_GTT], ng, 1)
 
     def cal_constraints(self, u, g: Grid):
         """
