@@ -241,10 +241,60 @@ class BSSN(Equations):
             raise ValueError(
                 "Invalid initial data. Must be 'puncture' or 'EddingtonFinkelstein'."
             )
+        if self.enforce_det:
+            self.project_initial_det(g)
         if self.lapse_gauge.n_aux:
             self.u[self.U_LAPSE_AUX][:] = self.lapse_gauge.initial_aux(
                 self.u[self.U_ALPHA], self.u[self.U_K]
             )
+
+    # Initial data whose det(gtilde) differs from 1 by more than this are
+    # re-split onto det = 1 by project_initial_det; below it the per-stage
+    # projection absorbs the round-off.
+    INITIAL_DET_TOL = 1.0e-12
+
+    def project_initial_det(self, g: Grid):
+        """Re-split initial data onto det(gtilde) = 1, keeping the physical data.
+
+        Called by initialize() when enforce_det is on.  Data that already
+        satisfy det = 1 to INITIAL_DET_TOL (the puncture and the
+        Eddington-Finkelstein data on main) are left bitwise unchanged.
+        Otherwise, with f = det^(-1/3), the conformal split is changed but
+        the physical metric and extrinsic curvature are not:
+
+            gtilde -> f gtilde,  chi -> f chi,  Atilde_rr -> f Atilde_rr,
+            Gt     -> (Gt - (ln f)' / (2 g_rr)) / f.
+
+        The Gt update is the exact change of Gt^r = g_rr'/(2 g_rr^2)
+        - g_tt'/(g_rr g_tt) under g -> f g; (ln f)' uses the grid's D1.
+        The per-stage projection (enforce_unit_det) instead rescales only
+        gtilde, removing the discrete constraint drift as SENR/NRPy do.
+        """
+        r = g.xi[0]
+        g_rr = self.u[self.U_GRR]
+        g_tt = self.u[self.U_GTT]
+        det = g_rr * (g_tt / (r * r)) ** 2
+        if not (np.all(np.isfinite(det)) and np.all(det > 0.0)):
+            raise ValueError("initial data: non-positive or non-finite det(gtilde)")
+        if np.max(np.abs(det - 1.0)) <= self.INITIAL_DET_TOL:
+            return
+        if g.D1 is None:
+            raise ValueError(
+                "project_initial_det needs the grid's D1 operator to update Gt"
+            )
+        ln_f = -np.log(det) / 3.0
+        f = np.exp(ln_f)
+        Gt = self.u[self.U_GT]
+        Gt[:] = (Gt - 0.5 * g.D1.grad(ln_f) / g_rr) / f
+        g_rr *= f
+        g_tt *= f
+        self.u[self.U_CHI] *= f
+        self.u[self.U_ARR] *= f
+        if not self.extended_domain:
+            ng = g.nghost
+            for k, parity in ((self.U_CHI, 1), (self.U_GRR, 1), (self.U_GTT, 1),
+                              (self.U_ARR, 1), (self.U_GT, -1)):
+                set_inner_regularity(self.u[k], ng, parity)
 
     def initial_data_puncture(self, g: Grid, params):
         """
