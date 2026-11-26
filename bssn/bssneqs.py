@@ -73,6 +73,7 @@ class BSSN(Equations):
         lapse_gauge=None,
         sommerfeld_tail=True,
         enforce_det=True,
+        log_ko=False,
     ):
         """
         Initialize the BSSN equations.
@@ -100,6 +101,14 @@ class BSSN(Equations):
             from 1 near the puncture; without this the first cells collapse
             (~78M at h = .05).  Default on; False restores the unprojected
             evolution.
+        log_ko : bool
+            Apply RHS filters (KO dissipation) to ln g_rr and ln(g_tt / r^2)
+            instead of g_rr and g_tt: the g_rr term becomes g_rr KO(ln g_rr),
+            and likewise for g_tt.  KO is linear, so the filter's
+            contribution to d ln det / dt is KO(ln det): zero when
+            det(gtilde) = 1, and damping when it is not.  Standard KO on
+            the components instead creates det error near the puncture.
+            Not standard BSSN, so default off.  Other fields are unchanged.
         lapse_gauge : gauges.LapseGauge
             Lapse gauge from gauges.LAPSE_GAUGES; default 1+log with k = 2.
             A gauge with n_aux = 1 (the telegrapher) adds a 10th evolved field.
@@ -111,6 +120,10 @@ class BSSN(Equations):
         if not isinstance(enforce_det, (bool, np.bool_)):
             raise ValueError("enforce_det must be a boolean")
         self.enforce_det = bool(enforce_det)
+        if not isinstance(log_ko, (bool, np.bool_)):
+            raise ValueError("log_ko must be a boolean")
+        self.log_ko = bool(log_ko)
+        self._r2 = g.xi[0] ** 2
         self._tail_geometry = (
             tail_bc.geometry(g.xi[0], g.nghost, extended_domain)
             if sommerfeld_tail and outer_bc == BSSNOuterBCType.SOMMERFELD else None
@@ -1024,6 +1037,14 @@ class BSSN(Equations):
             - lambda_shift * beta_r * d_Gamma_r
             - eta * B_r
         )
+
+    def filter_rhs(self, i, ui, fx):
+        """RHS-filter term; with log_ko, filter ln g_rr and ln(g_tt / r^2)."""
+        if self.log_ko and i == self.U_GRR:
+            return ui * fx.filter(np.log(ui))
+        if self.log_ko and i == self.U_GTT:
+            return ui * fx.filter(np.log(ui / self._r2))
+        return fx.filter(ui)
 
     def apply_bcs(self, u, g: Grid):
         """

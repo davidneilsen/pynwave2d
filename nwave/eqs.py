@@ -41,6 +41,14 @@ class Equations(ABC):
         """
         pass
 
+    def filter_rhs(self, i, ui, fx):
+        """
+        RHS-filter term for field i (e.g. KO dissipation), added to the
+        RHS by the time integrator.  The default filters the field itself;
+        a system may override this to filter a function of the field.
+        """
+        return fx.filter(ui)
+
     @abstractmethod
     def apply_bcs(self, u, g):
         """

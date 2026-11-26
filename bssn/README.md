@@ -200,6 +200,7 @@ parameter-file keys.  A lapse gauge that needs an extra evolved field sets
 | Key | Default | Description |
 |-----|---------|-------------|
 | `enforce_det` | `true` | Keep det(gtilde) = `grr (gtt/r^2)^2` = 1: re-split the initial data onto it and rescale `grr`, `gtt` by det^(-1/3) after every RK stage (see below). `false` gives the unprojected evolution |
+| `log_ko` | `false` | Apply RHS filters (KO) to `ln grr` and `ln(gtt/r^2)` instead of `grr`, `gtt`, so KO no longer drives det(gtilde) off 1 (see below). Not standard BSSN; opt-in |
 
 ### Output
 
@@ -254,6 +255,7 @@ parameter-file keys.  A lapse gauge that needs an extra evolved field sets
 + Add KO dissipation
 + Add option to mask constraints near punctures
 + Enforce det(gtilde) = 1 after every RK stage (`enforce_det`)
++ Optional log KO on the conformal metric (`log_ko`)
 
 ## Sommerfeld residual tail
 
@@ -322,3 +324,35 @@ data already satisfy det = 1, and they are bitwise unchanged.
 `enforce_det = false` reproduces runs made before this option existed,
 bitwise.  Set it explicitly in parameter files whose recorded results you
 need to reproduce.
+
+### Log KO on the conformal metric (`log_ko`, opt-in)
+
+`log_ko = true` removes the det drift at its source instead of projecting it
+away.  RHS filters act on `ln grr` and `ln(gtt/r^2)`, and the RHS terms
+become `grr KO(ln grr)` and `gtt KO(ln(gtt/r^2))`; all other fields are
+filtered as before.  KO is linear, so the filter's contribution to
+d ln det / dt is KO(ln det): zero on det = 1, and dissipative for det
+error.  It is not standard BSSN (production 3D codes filter the metric
+components), so it is off by default.  It works with or without
+`enforce_det`; with it on, the per-stage rescale has almost nothing left to
+do.
+
+Measured on a +-80 M domain (E642, KO6 sigma 0.5, 1+log, eta = 2, to 100 M;
+RMS over 0.5 <= r < 2 at h = 0.05 / 0.025 / 0.0125):
+
+| | standard KO + `enforce_det` | `log_ko` (+/- `enforce_det`) |
+|---|---|---|
+| Hamiltonian, t = 100 | 1.8e-3 / 3.7e-5 / 2.3e-8 | 1.6e-3 / 6.6e-5 / 1.1e-7 |
+| Hamiltonian, t = 10 | 1.8e-2 / 2.4e-4 / 3.8e-6 | 2.0e-2 / 2.6e-4 / 1.2e-7 |
+| Momentum, t = 100 | 2.9e-2 / 6.9e-4 / 3.9e-7 | 1.7e-3 / 3.0e-4 / 5.1e-7 |
+| Gamma constraint, t = 100 | 9.4e-4 / 1.8e-5 / 2.5e-8 | 7.3e-4 / 3.1e-5 / 4.4e-8 |
+| min chi over the run | -2.9e-4 / -1.3e-4 / -4.7e-5 | -3.5e-4 / -1.7e-4 / -7.9e-5 |
+
+Standard KO without either option crashes at h = 0.05 near 80 M; `log_ko`
+alone does not.  The trade: no early Hamiltonian spike at fine resolution
+and lower momentum error at coarse resolution, against 2-5x higher late
+Hamiltonian error at fine resolution.  Long runs (half domain, R = 160 M)
+with `log_ko` and `enforce_det` reach 400 M at h = 0.05 and 0.025, where
+standard KO + `enforce_det` stops
+at 263 and 343 M, but both are already degraded by the outer gauge drift
+after about 280 M.
