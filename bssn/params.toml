@@ -10,6 +10,9 @@ sommerfeld_tail = true
 # Keep det(gtilde) = 1 (initial re-split plus a per-stage rescale; see README).
 enforce_det = true
 
+# Opt-in: KO on ln grr, ln(gtt/r^2) instead of grr, gtt (see README).
+log_ko = false
+
 NGhost = 3
 cfl = 0.10
 D1 = ["JP6", "ME6"]

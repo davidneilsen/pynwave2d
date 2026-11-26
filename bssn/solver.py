@@ -94,6 +94,7 @@ def main(parfile):
         lapse_gauge=lapse_gauge,
         sommerfeld_tail=params.get("sommerfeld_tail", True),
         enforce_det=params.get("enforce_det", True),
+        log_ko=params.get("log_ko", False),
     )
     eqs.initialize(g, params)
     require_finite_state(eqs.u, 0, eqs.u_names)

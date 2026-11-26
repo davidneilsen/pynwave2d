@@ -46,6 +46,9 @@ class RK4:
             for fx in g.Filter:
                 if fx.get_apply_filter() == FilterApply.RHS:
                     rhsfilters.append(fx)
+        # Equations may override filter_rhs (e.g. BSSN log_ko); duck-typed
+        # systems without it get the plain filter.
+        filter_rhs = getattr(e, "filter_rhs", lambda i, ui, fx: fx.filter(ui))
 
         # Stage 1
         if LTRACE:
@@ -58,7 +61,7 @@ class RK4:
             for i in range(nu):
                 # print(f"calling filter {i}. sigma = {g.Filter.get_sigma()}")
                 for rhsfilter in rhsfilters:
-                    wrk = rhsfilter.filter(u0[i])
+                    wrk = filter_rhs(i, u0[i], rhsfilter)
                     k1[i] += wrk
         for i in range(nu):
             us[i][:] = u0[i][:] + 0.5 * dt * k1[i][:]
@@ -84,7 +87,7 @@ class RK4:
         if self.do_rhs_filter:
             for i in range(nu):
                 for rhsfilter in rhsfilters:
-                    wrk = rhsfilter.filter(us[i])
+                    wrk = filter_rhs(i, us[i], rhsfilter)
                     k2[i] += wrk
         for i in range(nu):
             us[i][:] = u0[i][:] + 0.5 * dt * k2[i][:]
@@ -96,7 +99,7 @@ class RK4:
         if self.do_rhs_filter:
             for i in range(nu):
                 for rhsfilter in rhsfilters:
-                    wrk = rhsfilter.filter(us[i])
+                    wrk = filter_rhs(i, us[i], rhsfilter)
                     k3[i] += wrk
         for i in range(nu):
             us[i][:] = u0[i][:] + dt * k3[i][:]
@@ -108,7 +111,7 @@ class RK4:
         if self.do_rhs_filter:
             for i in range(nu):
                 for rhsfilter in rhsfilters:
-                    wrk = rhsfilter.filter(us[i])
+                    wrk = filter_rhs(i, us[i], rhsfilter)
                     k4[i] += wrk
         for i in range(nu):
             u0[i][:] += dt / 6 * (k1[i][:] + 2 * k2[i][:] + 2 * k3[i][:] + k4[i][:])
