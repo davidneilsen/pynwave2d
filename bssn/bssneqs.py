@@ -73,6 +73,7 @@ class BSSN(Equations):
         lapse_gauge=None,
         sommerfeld_tail=True,
         enforce_det=True,
+        alpha_floor=0.0,
     ):
         """
         Initialize the BSSN equations.
@@ -100,6 +101,14 @@ class BSSN(Equations):
             from 1 near the puncture; without this the first cells collapse
             (~78M at h = .05).  Default on; False restores the unprojected
             evolution.
+        alpha_floor : float
+            After every RK stage set alpha = max(alpha, alpha_floor).  KO
+            dissipation is not positivity preserving: when the collapse
+            front steepens alpha next to the puncture, the KO term in the
+            first cell outweighs alpha there and drives it negative (about
+            -5e-3 to -7e-3 near t = 7-10 M at h = .025-.0125), where 1+log
+            has alpha^2 f(alpha) < 0.  Dendro-GR and the NRPy-generated 3D
+            codes also floor the lapse.  Default 0.0 = off.
         lapse_gauge : gauges.LapseGauge
             Lapse gauge from gauges.LAPSE_GAUGES; default 1+log with k = 2.
             A gauge with n_aux = 1 (the telegrapher) adds a 10th evolved field.
@@ -111,6 +120,11 @@ class BSSN(Equations):
         if not isinstance(enforce_det, (bool, np.bool_)):
             raise ValueError("enforce_det must be a boolean")
         self.enforce_det = bool(enforce_det)
+        if (isinstance(alpha_floor, (bool, np.bool_))
+                or not isinstance(alpha_floor, (int, float, np.integer, np.floating))
+                or not np.isfinite(alpha_floor) or alpha_floor < 0):
+            raise ValueError("alpha_floor must be a finite number >= 0")
+        self.alpha_floor = float(alpha_floor)
         self._tail_geometry = (
             tail_bc.geometry(g.xi[0], g.nghost, extended_domain)
             if sommerfeld_tail and outer_bc == BSSNOuterBCType.SOMMERFELD else None
@@ -1066,6 +1080,10 @@ class BSSN(Equations):
 
         if self.lapse_gauge.n_aux and not self.extended_domain:
             set_inner_regularity(u[self.U_LAPSE_AUX], ng, 1)  # A is even, like alpha
+
+        if self.alpha_floor > 0.0:
+            # Elementwise, so the half-domain parity fill above is kept.
+            np.maximum(u[self.U_ALPHA], self.alpha_floor, out=u[self.U_ALPHA])
 
         if self.enforce_det:
             enforce_unit_det(u[self.U_GRR], u[self.U_GTT], g.xi[0])

@@ -200,6 +200,7 @@ parameter-file keys.  A lapse gauge that needs an extra evolved field sets
 | Key | Default | Description |
 |-----|---------|-------------|
 | `enforce_det` | `true` | Keep det(gtilde) = `grr (gtt/r^2)^2` = 1: re-split the initial data onto it and rescale `grr`, `gtt` by det^(-1/3) after every RK stage (see below). `false` gives the unprojected evolution |
+| `alpha_floor` | `0.0` | After every RK stage set `alpha = max(alpha, alpha_floor)`; KO can drive the lapse negative next to the puncture (see below). `0` = off |
 
 ### Output
 
@@ -254,6 +255,7 @@ parameter-file keys.  A lapse gauge that needs an extra evolved field sets
 + Add KO dissipation
 + Add option to mask constraints near punctures
 + Enforce det(gtilde) = 1 after every RK stage (`enforce_det`)
++ Optional lapse floor (`alpha_floor`)
 
 ## Sommerfeld residual tail
 
@@ -322,3 +324,30 @@ data already satisfy det = 1, and they are bitwise unchanged.
 `enforce_det = false` reproduces runs made before this option existed,
 bitwise.  Set it explicitly in parameter files whose recorded results you
 need to reproduce.
+
+### Lapse floor (`alpha_floor`)
+
+With 1+log slicing, alpha stays positive in the continuum, since its RHS
+is proportional to alpha.  KO dissipation is not positivity preserving,
+however.  Puncture data, 1+log, eta = 2, E642 or JT6/ME6, KO6 sigma 0.5:
+by t ~ 5 M the collapse front has steepened alpha within about four cells
+of r = 0.  The 7-point KO stencil centred on the first cell then returns
+about -4e-3 there, while alpha in that cell is ~6e-4 and -2 alpha K is
+~1e-5.  The lapse in the first cell goes negative for a few M:
+
+| h | 0.05 | 0.025 | 0.0125 |
+|---|---|---|---|
+| min alpha, no floor | -3e-4 | -5e-3 | -7e-3 |
+| min alpha, KO off on alpha only | -4e-5 | -3e-5 | -3e-5 |
+
+Where alpha < 0 the lapse equation has alpha^2 f(alpha) < 0.  The run
+recovers through -2 alpha K, and nothing crashes.  `alpha_floor > 0`
+clips alpha after every RK stage; Dendro-GR and the NRPy-generated 3D codes
+also floor the lapse.  Half domain, R = 40,
+to 40 M: floors of 1e-12 and 1e-6 give the same constraints, and both
+match the unfloored run at 20 and 40 M at every h.  During the dip at
+h = 0.0125 (t = 10 M), H, M and the Gamma constraint in [0.5, 2) are about
+2x smaller with the floor: 2.0e-6 vs 3.8e-6, 4.2e-7 vs 7.5e-7 and 9.4e-7
+vs 2.3e-6.  KO on ln alpha instead keeps alpha positive but crashes at
+20-33 M, because the trumpet lapse vanishes at the puncture.  The default
+`0` leaves runs bitwise unchanged.
