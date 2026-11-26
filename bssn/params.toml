@@ -10,6 +10,9 @@ sommerfeld_tail = true
 # Keep det(gtilde) = 1 (initial re-split plus a per-stage rescale; see README).
 enforce_det = true
 
+# Lapse floor applied after every RK stage (0 = off; see README).
+alpha_floor = 0.0
+
 NGhost = 3
 cfl = 0.10
 D1 = ["JP6", "ME6"]
